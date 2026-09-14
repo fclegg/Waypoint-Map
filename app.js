@@ -523,8 +523,8 @@ function localToCloud(location) {
          * updated_at to NOT be null.
          */
         updated_at:
-            location.updatedAt ||
-            new Date().toISOString()
+          location.updatedAt ||
+          new Date().toISOString()
 
     };
 
