@@ -1,8 +1,31 @@
 /* =========================================
    WAYPOINT
    COMPLETE APP.JS
+   Phase 8 — Cloud Database
    Phase 5 + Phase 6 + Real Maps
 ========================================= */
+
+
+/* =========================================
+   SUPABASE CONFIGURATION
+========================================= */
+
+const SUPABASE_URL =
+    window.WAYPOINT_SUPABASE_URL ||
+    "https://mzwzrzypqumoxwfrmyvq.supabase.co";
+
+const SUPABASE_PUBLISHABLE_KEY =
+    window.WAYPOINT_SUPABASE_PUBLISHABLE_KEY ||
+    "sb_publishable_q_uJiMrLqL91nIgVtX8Qaw_MhhJ-kdi";
+
+const supabaseClient =
+    window.supabase &&
+    window.supabase.createClient
+        ? window.supabase.createClient(
+              SUPABASE_URL,
+              SUPABASE_PUBLISHABLE_KEY
+          )
+        : null;
 
 
 /* =========================================
@@ -22,7 +45,6 @@ const map = L.map("map", {
    BASEMAPS
 ========================================= */
 
-/* Real street map */
 const streetsLayer = L.tileLayer(
     "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
     {
@@ -33,22 +55,18 @@ const streetsLayer = L.tileLayer(
 );
 
 
-/* Satellite imagery */
 const satelliteLayer = L.tileLayer(
     "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
     {
         maxZoom: 19,
-        attribution:
-            "Tiles &copy; Esri"
+        attribution: "Tiles &copy; Esri"
     }
 );
 
 
-/* Streets is the default */
 streetsLayer.addTo(map);
 
 
-/* Basemap selector */
 L.control.layers(
     {
         "Streets": streetsLayer,
@@ -82,6 +100,10 @@ const state = {
 
     editingLocationId: null,
 
+    loadingLocations: false,
+
+    cloudConnected: false,
+
     filters: {
 
         danger: [],
@@ -107,49 +129,31 @@ const sidebar =
     document.querySelector(".sidebar");
 
 const sidebarToggle =
-    document.getElementById(
-        "sidebarToggle"
-    );
+    document.getElementById("sidebarToggle");
 
 const searchInput =
-    document.getElementById(
-        "searchInput"
-    );
+    document.getElementById("searchInput");
 
 const resetFilters =
-    document.getElementById(
-        "resetFilters"
-    );
+    document.getElementById("resetFilters");
 
 const categoryFilter =
-    document.getElementById(
-        "categoryFilter"
-    );
+    document.getElementById("categoryFilter");
 
 const sortFilter =
-    document.getElementById(
-        "sortFilter"
-    );
+    document.getElementById("sortFilter");
 
 const locationCount =
-    document.getElementById(
-        "locationCount"
-    );
+    document.getElementById("locationCount");
 
 const coordinates =
-    document.getElementById(
-        "coordinates"
-    );
+    document.getElementById("coordinates");
 
 const locateBtn =
-    document.getElementById(
-        "locateBtn"
-    );
+    document.getElementById("locateBtn");
 
 const addLocationBtn =
-    document.getElementById(
-        "addLocationBtn"
-    );
+    document.getElementById("addLocationBtn");
 
 
 /* =========================================
@@ -157,14 +161,10 @@ const addLocationBtn =
 ========================================= */
 
 const locationList =
-    document.getElementById(
-        "locationList"
-    );
+    document.getElementById("locationList");
 
 const directoryCount =
-    document.getElementById(
-        "directoryCount"
-    );
+    document.getElementById("directoryCount");
 
 
 /* =========================================
@@ -172,64 +172,40 @@ const directoryCount =
 ========================================= */
 
 const modal =
-    document.getElementById(
-        "locationModal"
-    );
+    document.getElementById("locationModal");
 
 const closeModal =
-    document.getElementById(
-        "closeModal"
-    );
+    document.getElementById("closeModal");
 
 const cancelLocation =
-    document.getElementById(
-        "cancelLocation"
-    );
+    document.getElementById("cancelLocation");
 
 const locationForm =
-    document.getElementById(
-        "locationForm"
-    );
+    document.getElementById("locationForm");
 
 const modalTitle =
-    document.getElementById(
-        "modalTitle"
-    );
+    document.getElementById("modalTitle");
 
 const locationName =
-    document.getElementById(
-        "locationName"
-    );
+    document.getElementById("locationName");
 
 const locationDescription =
-    document.getElementById(
-        "locationDescription"
-    );
+    document.getElementById("locationDescription");
 
 const locationCategory =
-    document.getElementById(
-        "locationCategory"
-    );
+    document.getElementById("locationCategory");
 
 const locationDanger =
-    document.getElementById(
-        "locationDanger"
-    );
+    document.getElementById("locationDanger");
 
 const locationAccessibility =
-    document.getElementById(
-        "locationAccessibility"
-    );
+    document.getElementById("locationAccessibility");
 
 const modalLatitude =
-    document.getElementById(
-        "modalLatitude"
-    );
+    document.getElementById("modalLatitude");
 
 const modalLongitude =
-    document.getElementById(
-        "modalLongitude"
-    );
+    document.getElementById("modalLongitude");
 
 
 /* =========================================
@@ -237,79 +213,49 @@ const modalLongitude =
 ========================================= */
 
 const detailsPanel =
-    document.getElementById(
-        "detailsPanel"
-    );
+    document.getElementById("detailsPanel");
 
 const closeDetails =
-    document.getElementById(
-        "closeDetails"
-    );
+    document.getElementById("closeDetails");
 
 const detailsName =
-    document.getElementById(
-        "detailsName"
-    );
+    document.getElementById("detailsName");
 
 const detailsCategory =
-    document.getElementById(
-        "detailsCategory"
-    );
+    document.getElementById("detailsCategory");
 
 const detailsDanger =
-    document.getElementById(
-        "detailsDanger"
-    );
+    document.getElementById("detailsDanger");
 
 const dangerDescription =
-    document.getElementById(
-        "dangerDescription"
-    );
+    document.getElementById("dangerDescription");
 
 const detailsAccessibility =
-    document.getElementById(
-        "detailsAccessibility"
-    );
+    document.getElementById("detailsAccessibility");
 
 const accessDescription =
-    document.getElementById(
-        "accessDescription"
-    );
+    document.getElementById("accessDescription");
 
 const detailsDescription =
-    document.getElementById(
-        "detailsDescription"
-    );
+    document.getElementById("detailsDescription");
 
 const detailsLatitude =
-    document.getElementById(
-        "detailsLatitude"
-    );
+    document.getElementById("detailsLatitude");
 
 const detailsLongitude =
-    document.getElementById(
-        "detailsLongitude"
-    );
+    document.getElementById("detailsLongitude");
 
 const detailsDate =
-    document.getElementById(
-        "detailsDate"
-    );
+    document.getElementById("detailsDate");
 
 const editLocationBtn =
-    document.getElementById(
-        "editLocationBtn"
-    );
+    document.getElementById("editLocationBtn");
 
 const deleteLocationBtn =
-    document.getElementById(
-        "deleteLocationBtn"
-    );
+    document.getElementById("deleteLocationBtn");
 
 const closeLocationBtn =
-    document.getElementById(
-        "closeLocationBtn"
-    );
+    document.getElementById("closeLocationBtn");
 
 
 /* =========================================
@@ -317,18 +263,14 @@ const closeLocationBtn =
 ========================================= */
 
 const mobileMenuBtn =
-    document.getElementById(
-        "mobileMenuBtn"
-    );
+    document.getElementById("mobileMenuBtn");
 
 const mobileSidebarBackdrop =
-    document.getElementById(
-        "mobileSidebarBackdrop"
-    );
+    document.getElementById("mobileSidebarBackdrop");
 
 
 /* =========================================
-   STORAGE
+   LOCAL CACHE
 ========================================= */
 
 const STORAGE_KEY =
@@ -342,9 +284,7 @@ const STORAGE_KEY =
 function escapeHTML(value) {
 
     const div =
-        document.createElement(
-            "div"
-        );
+        document.createElement("div");
 
     div.textContent =
         value ?? "";
@@ -358,30 +298,21 @@ function getCategoryLabel(category) {
 
     const labels = {
 
-        outdoor:
-            "Outdoor",
+        outdoor: "Outdoor",
 
-        indoor:
-            "Indoor",
+        indoor: "Indoor",
 
-        recreation:
-            "Recreation",
+        recreation: "Recreation",
 
-        historical:
-            "Historical",
+        historical: "Historical",
 
-        natural:
-            "Natural",
+        natural: "Natural",
 
-        other:
-            "Other"
+        other: "Other"
 
     };
 
-    return (
-        labels[category] ||
-        "Other"
-    );
+    return labels[category] || "Other";
 
 }
 
@@ -390,87 +321,55 @@ function getDangerDescription(level) {
 
     const descriptions = {
 
-        1:
-            "Very Low",
+        1: "Very Low",
 
-        2:
-            "Low",
+        2: "Low",
 
-        3:
-            "Moderate",
+        3: "Moderate",
 
-        4:
-            "High",
+        4: "High",
 
-        5:
-            "Extreme"
+        5: "Extreme"
 
     };
 
-    return (
-        descriptions[
-            Number(level)
-        ] ||
-        "Unknown"
-    );
+    return descriptions[Number(level)] || "Unknown";
 
 }
 
 
-function getAccessibilityDescription(
-    level
-) {
+function getAccessibilityDescription(level) {
 
     const descriptions = {
 
-        1:
-            "Easy access",
+        1: "Easy access",
 
-        2:
-            "Limited access",
+        2: "Limited access",
 
-        3:
-            "Difficult access",
+        3: "Difficult access",
 
-        4:
-            "Restricted",
+        4: "Restricted",
 
-        5:
-            "No public access"
+        5: "No public access"
 
     };
 
-    return (
-        descriptions[
-            Number(level)
-        ] ||
-        "Unknown"
-    );
+    return descriptions[Number(level)] || "Unknown";
 
 }
 
 
-function formatDate(
-    dateString
-) {
+function formatDate(dateString) {
 
     if (!dateString) {
-
         return "Unknown";
-
     }
 
     const date =
         new Date(dateString);
 
-    if (
-        Number.isNaN(
-            date.getTime()
-        )
-    ) {
-
+    if (Number.isNaN(date.getTime())) {
         return "Unknown";
-
     }
 
     return date.toLocaleDateString(
@@ -486,49 +385,44 @@ function formatDate(
 
 
 /* =========================================
-   LOCAL STORAGE
+   LOCAL CACHE FUNCTIONS
 ========================================= */
 
-function loadLocations() {
-
-    const saved =
-        localStorage.getItem(
-            STORAGE_KEY
-        );
-
-    if (!saved) {
-
-        state.locations = [];
-
-        return;
-
-    }
+function loadLocalCache() {
 
     try {
+
+        const saved =
+            localStorage.getItem(
+                STORAGE_KEY
+            );
+
+        if (!saved) {
+            return [];
+        }
 
         const parsed =
             JSON.parse(saved);
 
-        state.locations =
-            Array.isArray(parsed)
-                ? parsed
-                : [];
+        return Array.isArray(parsed)
+            ? parsed
+            : [];
 
     } catch (error) {
 
         console.error(
-            "Unable to load saved locations.",
+            "Unable to load local Waypoint cache.",
             error
         );
 
-        state.locations = [];
+        return [];
 
     }
 
 }
 
 
-function saveLocations() {
+function saveLocalCache() {
 
     try {
 
@@ -542,7 +436,7 @@ function saveLocations() {
     } catch (error) {
 
         console.error(
-            "Unable to save locations.",
+            "Unable to save local Waypoint cache.",
             error
         );
 
@@ -552,25 +446,637 @@ function saveLocations() {
 
 
 /* =========================================
+   DATABASE CONVERSION
+========================================= */
+
+function cloudToLocal(row) {
+
+    return {
+
+        id: row.id,
+
+        name: row.name || "",
+
+        description:
+            row.description || "",
+
+        category:
+            row.category || "other",
+
+        danger:
+            Number(row.danger) || 1,
+
+        accessibility:
+            Number(row.accessibility) || 1,
+
+        latitude:
+            Number(row.latitude),
+
+        longitude:
+            Number(row.longitude),
+
+        createdAt:
+            row.created_at || new Date().toISOString(),
+
+        updatedAt:
+            row.updated_at || null
+
+    };
+
+}
+
+
+function localToCloud(location) {
+
+    return {
+
+        id: location.id,
+
+        name: location.name,
+
+        description:
+            location.description || "",
+
+        category:
+            location.category || "other",
+
+        danger:
+            Number(location.danger) || 1,
+
+        accessibility:
+            Number(location.accessibility) || 1,
+
+        latitude:
+            Number(location.latitude),
+
+        longitude:
+            Number(location.longitude),
+
+        created_at:
+            location.createdAt ||
+            new Date().toISOString(),
+
+        updated_at:
+            location.updatedAt ||
+            null
+
+    };
+
+}
+
+
+/* =========================================
+   LOAD FROM SUPABASE
+========================================= */
+
+async function loadCloudLocations() {
+
+    if (!supabaseClient) {
+
+        console.warn(
+            "Supabase client is unavailable. Using local cache."
+        );
+
+        return false;
+
+    }
+
+    try {
+
+        state.loadingLocations = true;
+
+        const {
+            data,
+            error
+        } =
+            await supabaseClient
+                .from("locations")
+                .select("*")
+                .order(
+                    "created_at",
+                    {
+                        ascending: false
+                    }
+                );
+
+
+        if (error) {
+            throw error;
+        }
+
+
+        state.locations =
+            (data || []).map(
+                cloudToLocal
+            );
+
+
+        state.cloudConnected = true;
+
+        saveLocalCache();
+
+        return true;
+
+    } catch (error) {
+
+        console.error(
+            "Unable to load locations from Supabase:",
+            error
+        );
+
+        state.cloudConnected = false;
+
+        return false;
+
+    } finally {
+
+        state.loadingLocations = false;
+
+    }
+
+}
+
+
+/* =========================================
+   MIGRATE LOCAL LOCATIONS
+========================================= */
+
+async function migrateLocalLocations() {
+
+    if (!supabaseClient) {
+        return;
+    }
+
+
+    const localLocations =
+        loadLocalCache();
+
+
+    if (!localLocations.length) {
+        return;
+    }
+
+
+    try {
+
+        const {
+            data: cloudLocations,
+            error: loadError
+        } =
+            await supabaseClient
+                .from("locations")
+                .select("id");
+
+
+        if (loadError) {
+            throw loadError;
+        }
+
+
+        const existingIds =
+            new Set(
+                (cloudLocations || [])
+                    .map(
+                        item => item.id
+                    )
+            );
+
+
+        const locationsToUpload =
+            localLocations
+                .filter(
+                    location =>
+                        location.id &&
+                        !existingIds.has(
+                            location.id
+                        )
+                )
+                .map(
+                    localToCloud
+                );
+
+
+        if (!locationsToUpload.length) {
+            return;
+        }
+
+
+        console.log(
+            `Migrating ${locationsToUpload.length} existing local location(s) to Supabase...`
+        );
+
+
+        const {
+            error
+        } =
+            await supabaseClient
+                .from("locations")
+                .insert(
+                    locationsToUpload
+                );
+
+
+        if (error) {
+            throw error;
+        }
+
+
+        console.log(
+            "Waypoint local locations successfully migrated."
+        );
+
+    } catch (error) {
+
+        console.error(
+            "Location migration failed:",
+            error
+        );
+
+    }
+
+}
+
+
+/* =========================================
+   INSERT LOCATION
+========================================= */
+
+async function insertCloudLocation(location) {
+
+    if (!supabaseClient) {
+        return false;
+    }
+
+
+    try {
+
+        const {
+            error
+        } =
+            await supabaseClient
+                .from("locations")
+                .insert(
+                    localToCloud(location)
+                );
+
+
+        if (error) {
+            throw error;
+        }
+
+
+        return true;
+
+    } catch (error) {
+
+        console.error(
+            "Unable to add location to Supabase:",
+            error
+        );
+
+        return false;
+
+    }
+
+}
+
+
+/* =========================================
+   UPDATE LOCATION
+========================================= */
+
+async function updateCloudLocation(location) {
+
+    if (!supabaseClient) {
+        return false;
+    }
+
+
+    try {
+
+        const {
+            error
+        } =
+            await supabaseClient
+                .from("locations")
+                .update(
+                    localToCloud(location)
+                )
+                .eq(
+                    "id",
+                    location.id
+                );
+
+
+        if (error) {
+            throw error;
+        }
+
+
+        return true;
+
+    } catch (error) {
+
+        console.error(
+            "Unable to update location in Supabase:",
+            error
+        );
+
+        return false;
+
+    }
+
+}
+
+
+/* =========================================
+   DELETE LOCATION
+========================================= */
+
+async function deleteCloudLocation(locationId) {
+
+    if (!supabaseClient) {
+        return false;
+    }
+
+
+    try {
+
+        const {
+            error
+        } =
+            await supabaseClient
+                .from("locations")
+                .delete()
+                .eq(
+                    "id",
+                    locationId
+                );
+
+
+        if (error) {
+            throw error;
+        }
+
+
+        return true;
+
+    } catch (error) {
+
+        console.error(
+            "Unable to delete location from Supabase:",
+            error
+        );
+
+        return false;
+
+    }
+
+}
+
+
+/* =========================================
+   REALTIME DATABASE UPDATES
+========================================= */
+
+function subscribeToLocationChanges() {
+
+    if (!supabaseClient) {
+        return;
+    }
+
+
+    try {
+
+        supabaseClient
+            .channel(
+                "waypoint-locations"
+            )
+            .on(
+                "postgres_changes",
+                {
+                    event: "*",
+                    schema: "public",
+                    table: "locations"
+                },
+                payload => {
+
+                    console.log(
+                        "Waypoint database update:",
+                        payload.eventType
+                    );
+
+
+                    if (
+                        payload.eventType ===
+                        "INSERT"
+                    ) {
+
+                        const incoming =
+                            cloudToLocal(
+                                payload.new
+                            );
+
+
+                        const exists =
+                            state.locations.some(
+                                location =>
+                                    location.id ===
+                                    incoming.id
+                            );
+
+
+                        if (!exists) {
+
+                            state.locations.push(
+                                incoming
+                            );
+
+                        }
+
+                    }
+
+
+                    if (
+                        payload.eventType ===
+                        "UPDATE"
+                    ) {
+
+                        const incoming =
+                            cloudToLocal(
+                                payload.new
+                            );
+
+
+                        const index =
+                            state.locations.findIndex(
+                                location =>
+                                    location.id ===
+                                    incoming.id
+                            );
+
+
+                        if (index !== -1) {
+
+                            state.locations[index] =
+                                incoming;
+
+                        } else {
+
+                            state.locations.push(
+                                incoming
+                            );
+
+                        }
+
+                    }
+
+
+                    if (
+                        payload.eventType ===
+                        "DELETE"
+                    ) {
+
+                        state.locations =
+                            state.locations.filter(
+                                location =>
+                                    location.id !==
+                                    payload.old.id
+                            );
+
+
+                        if (
+                            state.selectedLocationId ===
+                            payload.old.id
+                        ) {
+
+                            closeDetailsPanel();
+
+                        }
+
+                    }
+
+
+                    saveLocalCache();
+
+                    renderLocations();
+
+                }
+            )
+            .subscribe(
+                status => {
+
+                    console.log(
+                        "Waypoint realtime status:",
+                        status
+                    );
+
+                }
+            );
+
+    } catch (error) {
+
+        console.warn(
+            "Realtime subscription unavailable:",
+            error
+        );
+
+    }
+
+}
+
+
+/* =========================================
+   INITIALIZE DATABASE
+========================================= */
+
+async function initializeDatabase() {
+
+    const cachedLocations =
+        loadLocalCache();
+
+
+    /*
+     * Show cached locations immediately.
+     * This makes Waypoint usable while
+     * the cloud database loads.
+     */
+
+    if (cachedLocations.length) {
+
+        state.locations =
+            cachedLocations;
+
+        renderLocations();
+
+    }
+
+
+    if (!supabaseClient) {
+
+        console.warn(
+            "Waypoint is running in local-only mode."
+        );
+
+        return;
+
+    }
+
+
+    /*
+     * First retrieve the current
+     * cloud database.
+     */
+
+    const cloudLoaded =
+        await loadCloudLocations();
+
+
+    /*
+     * If the database is empty but
+     * this browser has old locations,
+     * migrate them.
+     */
+
+    if (cloudLoaded) {
+
+        await migrateLocalLocations();
+
+        /*
+         * Reload after migration so the
+         * UI contains the authoritative
+         * cloud records.
+         */
+
+        await loadCloudLocations();
+
+    } else if (cachedLocations.length) {
+
+        state.locations =
+            cachedLocations;
+
+    }
+
+
+    renderLocations();
+
+    subscribeToLocationChanges();
+
+}
+
+
+/* =========================================
    FILTER LOGIC
 ========================================= */
 
-function passesFilters(
-    location
-) {
+function passesFilters(location) {
 
     const danger =
-        Number(
-            location.danger
-        );
+        Number(location.danger);
 
     const accessibility =
-        Number(
-            location.accessibility
-        );
+        Number(location.accessibility);
 
-
-    /* Danger */
 
     if (
         state.filters.danger.length > 0 &&
@@ -584,8 +1090,6 @@ function passesFilters(
     }
 
 
-    /* Accessibility */
-
     if (
         state.filters.accessibility.length > 0 &&
         !state.filters.accessibility.includes(
@@ -598,11 +1102,8 @@ function passesFilters(
     }
 
 
-    /* Category */
-
     if (
-        state.filters.category !==
-            "all" &&
+        state.filters.category !== "all" &&
         location.category !==
             state.filters.category
     ) {
@@ -612,11 +1113,7 @@ function passesFilters(
     }
 
 
-    /* Search */
-
-    if (
-        state.filters.search
-    ) {
+    if (state.filters.search) {
 
         const searchableText = [
 
@@ -657,17 +1154,13 @@ function passesFilters(
    SORTING
 ========================================= */
 
-function sortLocations(
-    locations
-) {
+function sortLocations(locations) {
 
     const sorted =
         [...locations];
 
 
-    switch (
-        state.filters.sort
-    ) {
+    switch (state.filters.sort) {
 
         case "oldest":
 
@@ -742,12 +1235,8 @@ function sortLocations(
 
             sorted.sort(
                 (a, b) =>
-                    Number(
-                        b.accessibility
-                    ) -
-                    Number(
-                        a.accessibility
-                    )
+                    Number(b.accessibility) -
+                    Number(a.accessibility)
             );
 
             break;
@@ -757,12 +1246,8 @@ function sortLocations(
 
             sorted.sort(
                 (a, b) =>
-                    Number(
-                        a.accessibility
-                    ) -
-                    Number(
-                        b.accessibility
-                    )
+                    Number(a.accessibility) -
+                    Number(b.accessibility)
             );
 
             break;
@@ -800,15 +1285,13 @@ function updateLocationCount(
     visibleCount
 ) {
 
+    if (!locationCount) {
+        return;
+    }
+
+
     const total =
         state.locations.length;
-
-
-    if (!locationCount) {
-
-        return;
-
-    }
 
 
     if (total === 0) {
@@ -821,9 +1304,7 @@ function updateLocationCount(
     }
 
 
-    if (
-        visibleCount === total
-    ) {
+    if (visibleCount === total) {
 
         locationCount.textContent =
             total === 1
@@ -869,21 +1350,20 @@ function highlightMarker(
                 marker.getElement();
 
             if (!element) {
-
                 return;
-
             }
+
 
             const markerElement =
                 element.querySelector(
                     ".waypoint-marker"
                 );
 
+
             if (!markerElement) {
-
                 return;
-
             }
+
 
             const selected =
                 marker.locationId ===
@@ -895,11 +1375,6 @@ function highlightMarker(
                 selected
             );
 
-
-            /*
-             * Keep the selected marker
-             * above nearby markers.
-             */
 
             marker.setZIndexOffset(
                 selected
@@ -928,9 +1403,8 @@ function clearMarkerHighlights() {
                         ".waypoint-marker"
                     );
 
-                if (
-                    markerElement
-                ) {
+
+                if (markerElement) {
 
                     markerElement.classList.remove(
                         "selected-marker"
@@ -940,9 +1414,8 @@ function clearMarkerHighlights() {
 
             }
 
-            marker.setZIndexOffset(
-                0
-            );
+
+            marker.setZIndexOffset(0);
 
         }
     );
@@ -959,9 +1432,7 @@ function highlightDirectoryCard(
 ) {
 
     if (!locationList) {
-
         return;
-
     }
 
 
@@ -994,17 +1465,12 @@ function highlightDirectoryCard(
         );
 
 
-    if (
-        selectedCard
-    ) {
+    if (selectedCard) {
 
         selectedCard.scrollIntoView(
             {
-                behavior:
-                    "smooth",
-
-                block:
-                    "nearest"
+                behavior: "smooth",
+                block: "nearest"
             }
         );
 
@@ -1017,21 +1483,16 @@ function highlightDirectoryCard(
    CREATE MARKER
 ========================================= */
 
-function createMarker(
-    location
-) {
+function createMarker(location) {
 
     const danger =
-        Number(
-            location.danger
-        ) || 1;
+        Number(location.danger) || 1;
 
 
     const markerIcon =
         L.divIcon({
 
-            className:
-                "",
+            className: "",
 
             html: `
                 <div
@@ -1042,14 +1503,11 @@ function createMarker(
                 ></div>
             `,
 
-            iconSize:
-                [26, 26],
+            iconSize: [26, 26],
 
-            iconAnchor:
-                [13, 13],
+            iconAnchor: [13, 13],
 
-            popupAnchor:
-                [0, -13]
+            popupAnchor: [0, -13]
 
         });
 
@@ -1057,17 +1515,11 @@ function createMarker(
     const marker =
         L.marker(
             [
-                Number(
-                    location.latitude
-                ),
-
-                Number(
-                    location.longitude
-                )
+                Number(location.latitude),
+                Number(location.longitude)
             ],
             {
-                icon:
-                    markerIcon
+                icon: markerIcon
             }
         );
 
@@ -1090,9 +1542,7 @@ function createMarker(
 
     marker.addTo(map);
 
-    state.markers.push(
-        marker
-    );
+    state.markers.push(marker);
 
 
     return marker;
@@ -1107,9 +1557,7 @@ function createMarker(
 function renderLocationDirectory() {
 
     if (!locationList) {
-
         return;
-
     }
 
 
@@ -1120,9 +1568,7 @@ function renderLocationDirectory() {
 
 
     const visibleLocations =
-        sortLocations(
-            filtered
-        );
+        sortLocations(filtered);
 
 
     if (directoryCount) {
@@ -1133,18 +1579,14 @@ function renderLocationDirectory() {
     }
 
 
-    locationList.innerHTML =
-        "";
+    locationList.innerHTML = "";
 
 
-    if (
-        visibleLocations.length === 0
-    ) {
+    if (visibleLocations.length === 0) {
 
         const emptyState =
-            document.createElement(
-                "div"
-            );
+            document.createElement("div");
+
 
         emptyState.className =
             "location-list-empty";
@@ -1160,6 +1602,7 @@ function renderLocationDirectory() {
             emptyState
         );
 
+
         return;
 
     }
@@ -1169,9 +1612,7 @@ function renderLocationDirectory() {
         location => {
 
             const card =
-                document.createElement(
-                    "div"
-                );
+                document.createElement("div");
 
 
             card.className =
@@ -1214,9 +1655,7 @@ function renderLocationDirectory() {
 
 
             const danger =
-                Number(
-                    location.danger
-                ) || 1;
+                Number(location.danger) || 1;
 
 
             const accessibility =
@@ -1313,10 +1752,8 @@ function renderLocationDirectory() {
                 event => {
 
                     if (
-                        event.key ===
-                            "Enter" ||
-                        event.key ===
-                            " "
+                        event.key === "Enter" ||
+                        event.key === " "
                     ) {
 
                         event.preventDefault();
@@ -1361,9 +1798,7 @@ function updateNoResults(
     ) {
 
         if (noResults) {
-
             noResults.remove();
-
         }
 
         return;
@@ -1374,9 +1809,7 @@ function updateNoResults(
     if (!noResults) {
 
         noResults =
-            document.createElement(
-                "div"
-            );
+            document.createElement("div");
 
 
         noResults.className =
@@ -1388,9 +1821,7 @@ function updateNoResults(
 
 
         document
-            .querySelector(
-                ".map-container"
-            )
+            .querySelector(".map-container")
             .appendChild(
                 noResults
             );
@@ -1406,16 +1837,10 @@ function updateNoResults(
 
 function renderLocations() {
 
-    /*
-     * Remove old markers.
-     */
-
     state.markers.forEach(
         marker => {
 
-            if (
-                map.hasLayer(marker)
-            ) {
+            if (map.hasLayer(marker)) {
 
                 map.removeLayer(
                     marker
@@ -1430,28 +1855,16 @@ function renderLocations() {
     state.markers = [];
 
 
-    /*
-     * Get visible locations.
-     */
-
     const visibleLocations =
         state.locations.filter(
             passesFilters
         );
 
 
-    /*
-     * Create markers.
-     */
-
     visibleLocations.forEach(
         createMarker
     );
 
-
-    /*
-     * Update interface.
-     */
 
     updateLocationCount(
         visibleLocations.length
@@ -1466,17 +1879,12 @@ function renderLocations() {
     renderLocationDirectory();
 
 
-    /*
-     * Restore selection.
-     */
-
-    if (
-        state.selectedLocationId
-    ) {
+    if (state.selectedLocationId) {
 
         highlightMarker(
             state.selectedLocationId
         );
+
 
         highlightDirectoryCard(
             state.selectedLocationId
@@ -1504,20 +1912,11 @@ function focusLocation(
 
 
     if (!location) {
-
         return;
-
     }
 
 
-    /*
-     * If filters hide this location,
-     * remove the filters first.
-     */
-
-    if (
-        !passesFilters(location)
-    ) {
+    if (!passesFilters(location)) {
 
         clearFilters();
 
@@ -1529,14 +1928,10 @@ function focusLocation(
 
 
     const latitude =
-        Number(
-            location.latitude
-        );
+        Number(location.latitude);
 
     const longitude =
-        Number(
-            location.longitude
-        );
+        Number(location.longitude);
 
 
     if (
@@ -1554,8 +1949,7 @@ function focusLocation(
                 13
             ),
             {
-                duration:
-                    0.8
+                duration: 0.8
             }
         );
 
@@ -1566,11 +1960,6 @@ function focusLocation(
         locationId
     );
 
-
-    /*
-     * Wait briefly for Leaflet to
-     * finish creating the marker DOM.
-     */
 
     setTimeout(
         () => {
@@ -1611,9 +2000,7 @@ function openDetails(
 
 
     if (!location) {
-
         return;
-
     }
 
 
@@ -1633,9 +2020,7 @@ function openDetails(
 
 
     const danger =
-        Number(
-            location.danger
-        ) || 1;
+        Number(location.danger) || 1;
 
 
     const accessibility =
@@ -1750,16 +2135,24 @@ function closeDetailsPanel() {
 }
 
 
-closeDetails.addEventListener(
-    "click",
-    closeDetailsPanel
-);
+if (closeDetails) {
+
+    closeDetails.addEventListener(
+        "click",
+        closeDetailsPanel
+    );
+
+}
 
 
-closeLocationBtn.addEventListener(
-    "click",
-    closeDetailsPanel
-);
+if (closeLocationBtn) {
+
+    closeLocationBtn.addEventListener(
+        "click",
+        closeDetailsPanel
+    );
+
+}
 
 
 /* =========================================
@@ -1812,12 +2205,8 @@ map.on(
     "click",
     event => {
 
-        if (
-            !state.addingLocation
-        ) {
-
+        if (!state.addingLocation) {
             return;
-
         }
 
 
@@ -1964,14 +2353,12 @@ modal.addEventListener(
 
 locationForm.addEventListener(
     "submit",
-    event => {
+    async event => {
 
         event.preventDefault();
 
 
-        if (
-            !state.selectedCoordinates
-        ) {
+        if (!state.selectedCoordinates) {
 
             alert(
                 "Please select a location on the map."
@@ -1999,9 +2386,7 @@ locationForm.addEventListener(
          * EDIT
          */
 
-        if (
-            state.editingLocation
-        ) {
+        if (state.editingLocation) {
 
             const location =
                 state.locations.find(
@@ -2012,9 +2397,7 @@ locationForm.addEventListener(
 
 
             if (!location) {
-
                 return;
-
             }
 
 
@@ -2023,9 +2406,7 @@ locationForm.addEventListener(
 
 
             location.description =
-                locationDescription
-                    .value
-                    .trim();
+                locationDescription.value.trim();
 
 
             location.category =
@@ -2040,32 +2421,61 @@ locationForm.addEventListener(
 
             location.accessibility =
                 Number(
-                    locationAccessibility
-                        .value
+                    locationAccessibility.value
                 );
 
 
             location.latitude =
-                state.selectedCoordinates
-                    .latitude;
+                Number(
+                    state.selectedCoordinates
+                        .latitude
+                );
 
 
             location.longitude =
-                state.selectedCoordinates
-                    .longitude;
+                Number(
+                    state.selectedCoordinates
+                        .longitude
+                );
 
 
             location.updatedAt =
-                new Date()
-                    .toISOString();
+                new Date().toISOString();
 
 
-            saveLocations();
+            /*
+             * Update local cache immediately.
+             */
+
+            saveLocalCache();
+
+
+            /*
+             * Update cloud database.
+             */
+
+            if (state.cloudConnected) {
+
+                const success =
+                    await updateCloudLocation(
+                        location
+                    );
+
+
+                if (!success) {
+
+                    alert(
+                        "The location was updated locally, but the cloud database could not be updated."
+                    );
+
+                }
+
+            }
+
 
             closeLocationModal();
 
             renderLocations();
-
 
             focusLocation(
                 location.id
@@ -2089,9 +2499,7 @@ locationForm.addEventListener(
             name,
 
             description:
-                locationDescription
-                    .value
-                    .trim(),
+                locationDescription.value.trim(),
 
             category:
                 locationCategory.value,
@@ -2103,21 +2511,23 @@ locationForm.addEventListener(
 
             accessibility:
                 Number(
-                    locationAccessibility
-                        .value
+                    locationAccessibility.value
                 ),
 
             latitude:
-                state.selectedCoordinates
-                    .latitude,
+                Number(
+                    state.selectedCoordinates
+                        .latitude
+                ),
 
             longitude:
-                state.selectedCoordinates
-                .longitude,
+                Number(
+                    state.selectedCoordinates
+                        .longitude
+                ),
 
             createdAt:
-                new Date()
-                    .toISOString(),
+                new Date().toISOString(),
 
             updatedAt:
                 null
@@ -2125,16 +2535,44 @@ locationForm.addEventListener(
         };
 
 
+        /*
+         * Add locally first so the
+         * interface responds immediately.
+         */
+
         state.locations.push(
             newLocation
         );
 
 
-        saveLocations();
+        saveLocalCache();
 
         closeLocationModal();
 
         renderLocations();
+
+
+        /*
+         * Save to cloud.
+         */
+
+        if (state.cloudConnected) {
+
+            const success =
+                await insertCloudLocation(
+                    newLocation
+                );
+
+
+            if (!success) {
+
+                alert(
+                    "The location was saved on this device, but could not be uploaded to the cloud."
+                );
+
+            }
+
+        }
 
 
         state.selectedLocationId =
@@ -2166,9 +2604,7 @@ editLocationBtn.addEventListener(
 
 
         if (!location) {
-
             return;
-
         }
 
 
@@ -2220,8 +2656,7 @@ editLocationBtn.addEventListener(
 
         locationAccessibility.value =
             String(
-                location.accessibility ||
-                1
+                location.accessibility || 1
             );
 
 
@@ -2261,7 +2696,7 @@ editLocationBtn.addEventListener(
 
 deleteLocationBtn.addEventListener(
     "click",
-    () => {
+    async () => {
 
         const location =
             state.locations.find(
@@ -2272,9 +2707,7 @@ deleteLocationBtn.addEventListener(
 
 
         if (!location) {
-
             return;
-
         }
 
 
@@ -2285,11 +2718,38 @@ deleteLocationBtn.addEventListener(
 
 
         if (!confirmed) {
-
             return;
+        }
+
+
+        /*
+         * Delete from cloud first.
+         */
+
+        if (state.cloudConnected) {
+
+            const success =
+                await deleteCloudLocation(
+                    location.id
+                );
+
+
+            if (!success) {
+
+                alert(
+                    "The location could not be deleted from the cloud database."
+                );
+
+                return;
+
+            }
 
         }
 
+
+        /*
+         * Delete locally.
+         */
 
         state.locations =
             state.locations.filter(
@@ -2303,7 +2763,7 @@ deleteLocationBtn.addEventListener(
             null;
 
 
-        saveLocations();
+        saveLocalCache();
 
         closeDetailsPanel();
 
@@ -2415,14 +2875,14 @@ accessibilityButtons.forEach(
                 ) {
 
                     if (
-                        !state.filters
-                            .accessibility
-                            .includes(level)
+                        !state.filters.accessibility.includes(
+                            level
+                        )
                     ) {
 
-                        state.filters
-                            .accessibility
-                            .push(level);
+                        state.filters.accessibility.push(
+                            level
+                        );
 
                     }
 
@@ -2526,14 +2986,18 @@ function clearFilters() {
     state.filters.danger =
         [];
 
+
     state.filters.accessibility =
         [];
+
 
     state.filters.category =
         "all";
 
+
     state.filters.search =
         "";
+
 
     state.filters.sort =
         "newest";
@@ -2610,11 +3074,9 @@ locateBtn.addEventListener(
 
         map.locate({
 
-            setView:
-                true,
+            setView: true,
 
-            maxZoom:
-                14
+            maxZoom: 14
 
         });
 
@@ -2692,9 +3154,7 @@ sidebarToggle.addEventListener(
     "click",
     () => {
 
-        if (
-            isMobileLayout()
-        ) {
+        if (isMobileLayout()) {
 
             closeMobileSidebar();
 
@@ -2759,12 +3219,8 @@ function isMobileLayout() {
 
 function openMobileSidebar() {
 
-    if (
-        !isMobileLayout()
-    ) {
-
+    if (!isMobileLayout()) {
         return;
-
     }
 
 
@@ -2773,13 +3229,12 @@ function openMobileSidebar() {
     );
 
 
-    if (
-        mobileSidebarBackdrop
-    ) {
+    if (mobileSidebarBackdrop) {
 
         mobileSidebarBackdrop.classList.add(
             "visible"
         );
+
 
         mobileSidebarBackdrop.setAttribute(
             "aria-hidden",
@@ -2789,23 +3244,24 @@ function openMobileSidebar() {
     }
 
 
-    if (
-        mobileMenuBtn
-    ) {
+    if (mobileMenuBtn) {
 
         mobileMenuBtn.classList.add(
             "active"
         );
+
 
         mobileMenuBtn.setAttribute(
             "aria-expanded",
             "true"
         );
 
+
         mobileMenuBtn.setAttribute(
             "aria-label",
             "Close Explore"
         );
+
 
         mobileMenuBtn.setAttribute(
             "title",
@@ -2820,9 +3276,7 @@ function openMobileSidebar() {
 function closeMobileSidebar() {
 
     if (!sidebar) {
-
         return;
-
     }
 
 
@@ -2831,13 +3285,12 @@ function closeMobileSidebar() {
     );
 
 
-    if (
-        mobileSidebarBackdrop
-    ) {
+    if (mobileSidebarBackdrop) {
 
         mobileSidebarBackdrop.classList.remove(
             "visible"
         );
+
 
         mobileSidebarBackdrop.setAttribute(
             "aria-hidden",
@@ -2847,23 +3300,24 @@ function closeMobileSidebar() {
     }
 
 
-    if (
-        mobileMenuBtn
-    ) {
+    if (mobileMenuBtn) {
 
         mobileMenuBtn.classList.remove(
             "active"
         );
+
 
         mobileMenuBtn.setAttribute(
             "aria-expanded",
             "false"
         );
 
+
         mobileMenuBtn.setAttribute(
             "aria-label",
             "Open Explore"
         );
+
 
         mobileMenuBtn.setAttribute(
             "title",
@@ -2877,12 +3331,8 @@ function closeMobileSidebar() {
 
 function toggleMobileSidebar() {
 
-    if (
-        !isMobileLayout()
-    ) {
-
+    if (!isMobileLayout()) {
         return;
-
     }
 
 
@@ -2931,9 +3381,7 @@ window.addEventListener(
     "resize",
     () => {
 
-        if (
-            !isMobileLayout()
-        ) {
+        if (!isMobileLayout()) {
 
             closeMobileSidebar();
 
@@ -2982,13 +3430,8 @@ document.addEventListener(
     "keydown",
     event => {
 
-        if (
-            event.key !==
-            "Escape"
-        ) {
-
+        if (event.key !== "Escape") {
             return;
-
         }
 
 
@@ -3044,9 +3487,7 @@ map.on(
     event => {
 
         if (!coordinates) {
-
             return;
-
         }
 
 
@@ -3063,9 +3504,7 @@ map.on(
     () => {
 
         if (!coordinates) {
-
             return;
-
         }
 
 
@@ -3080,25 +3519,63 @@ map.on(
    INITIALIZE
 ========================================= */
 
-loadLocations();
+(async function initializeWaypoint() {
 
-renderLocations();
+    /*
+     * Load cached locations immediately.
+     */
 
-
-setTimeout(
-    () => {
-
-        map.invalidateSize();
-
-    },
-    100
-);
+    const cached =
+        loadLocalCache();
 
 
-console.log(
-    "Waypoint initialized."
-);
+    if (cached.length) {
 
-console.log(
-    `${state.locations.length} locations loaded.`
-);
+        state.locations =
+            cached;
+
+        renderLocations();
+
+    }
+
+
+    /*
+     * Connect to Supabase and load
+     * the shared database.
+     */
+
+    await initializeDatabase();
+
+
+    /*
+     * Make sure the map renders correctly
+     * after the initial application load.
+     */
+
+    setTimeout(
+        () => {
+
+            map.invalidateSize();
+
+        },
+        100
+    );
+
+
+    console.log(
+        "Waypoint initialized."
+    );
+
+
+    console.log(
+        `${state.locations.length} locations loaded.`
+    );
+
+
+    console.log(
+        state.cloudConnected
+            ? "Cloud database: CONNECTED"
+            : "Cloud database: OFFLINE / LOCAL CACHE"
+    );
+
+})();
