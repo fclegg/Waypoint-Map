@@ -1,0 +1,763 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Waypoint</title>
+
+    <link
+        rel="stylesheet"
+        href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        crossorigin=""
+    >
+
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+<div class="app">
+
+    <!-- =====================================
+         TOP BAR
+    ====================================== -->
+
+    <header class="topbar">
+
+        <div class="brand">
+
+            <div class="brand-icon">
+                W
+            </div>
+
+            <div class="brand-text">
+
+                <h1>Waypoint</h1>
+
+                <span>
+                    Explore. Discover. Document.
+                </span>
+
+            </div>
+
+        </div>
+
+
+        <div class="topbar-actions">
+
+            <button
+                class="mobile-menu-btn"
+                id="mobileMenuBtn"
+                type="button"
+                title="Open Explore"
+                aria-label="Open Explore"
+                aria-expanded="false"
+            >
+                ☰
+            </button>
+
+            <div class="search-container">
+
+                <span class="search-icon">
+                    ⌕
+                </span>
+
+                <input
+                    type="text"
+                    id="searchInput"
+                    placeholder="Search locations..."
+                >
+
+            </div>
+
+
+            <button
+                class="add-location-btn"
+                id="addLocationBtn"
+            >
+
+                <span>＋</span>
+
+                Add Location
+
+            </button>
+
+        </div>
+
+    </header>
+
+
+    <!-- =====================================
+         MAIN
+    ====================================== -->
+
+    <main class="main">
+
+        <div
+            class="mobile-sidebar-backdrop"
+            id="mobileSidebarBackdrop"
+            aria-hidden="true"
+        ></div>
+
+
+        <!-- =================================
+             SIDEBAR
+        ================================== -->
+
+        <aside class="sidebar">
+
+            <div class="sidebar-header">
+
+                <div>
+
+                    <h2>
+                        Explore
+                    </h2>
+
+                    <p>
+                        Find locations on the map
+                    </p>
+
+                </div>
+
+
+                <button
+                    class="sidebar-toggle"
+                    id="sidebarToggle"
+                    title="Collapse sidebar"
+                >
+                    ‹
+                </button>
+
+            </div>
+
+
+            <!-- FILTERS -->
+
+            <section class="filter-section">
+
+                <!-- SORT -->
+
+                <div class="filter-group">
+
+                    <label for="sortFilter">
+                        Sort By
+                    </label>
+
+                    <select id="sortFilter" aria-label="Sort locations">
+
+                        <option value="newest">
+                            Newest First
+                        </option>
+
+                        <option value="oldest">
+                            Oldest First
+                        </option>
+
+                        <option value="name-asc">
+                            Name A–Z
+                        </option>
+
+                        <option value="name-desc">
+                            Name Z–A
+                        </option>
+
+                        <option value="danger-desc">
+                            Danger: Highest First
+                        </option>
+
+                        <option value="danger-asc">
+                            Danger: Lowest First
+                        </option>
+
+                        <option value="access-desc">
+                            Accessibility: Highest First
+                        </option>
+
+                        <option value="access-asc">
+                            Accessibility: Lowest First
+                        </option>
+
+                    </select>
+
+                </div>
+
+            </section>
+
+
+            <!-- LOCATION COUNT -->
+
+            <section class="sidebar-info">
+
+                <div class="info-card">
+
+                    <span class="info-icon">
+                        ●
+                    </span>
+
+                    <div>
+
+                        <strong>
+                            Locations
+                        </strong>
+
+                        <p id="locationCount">
+                            0 locations mapped
+                        </p>
+
+                    </div>
+
+                </div>
+
+            </section>
+
+
+            <!-- LOCATION DIRECTORY -->
+
+            <section class="directory-section" aria-label="Location Directory">
+
+                <div class="directory-header">
+
+                    <div class="directory-title">
+                        Locations
+                    </div>
+
+                    <div
+                        class="directory-count"
+                        id="directoryCount"
+                        aria-live="polite"
+                        aria-label="Visible location count"
+                    >
+                        0
+                    </div>
+
+                </div>
+
+
+                <div
+                    class="location-list"
+                    id="locationList"
+                    role="list"
+                    aria-label="Mapped locations"
+                >
+
+                    <!-- Location cards are generated by app.js -->
+
+                </div>
+
+            </section>
+
+
+            <!-- FOOTER -->
+
+            <div class="sidebar-footer">
+
+                <span>
+                    Waypoint
+                </span>
+
+                <span>
+                    v0.5
+                </span>
+
+            </div>
+
+        </aside>
+
+
+        <!-- =================================
+             MAP
+        ================================== -->
+
+        <section class="map-container">
+
+            <div id="map"></div>
+
+
+            <div class="map-overlay">
+
+                <button
+                    class="map-control"
+                    id="locateBtn"
+                    title="Find my location"
+                >
+                    ◎
+                </button>
+
+            </div>
+
+
+            <div
+                class="coordinates"
+                id="coordinates"
+            >
+                Lat: -- | Lng: --
+            </div>
+
+        </section>
+
+
+        <!-- =================================
+             LOCATION DETAILS PANEL
+        ================================== -->
+
+        <aside
+            class="details-panel"
+            id="detailsPanel"
+        >
+
+            <div class="details-header">
+
+                <div>
+
+                    <span class="details-label">
+                        LOCATION DETAILS
+                    </span>
+
+                    <h2 id="detailsName">
+                        Location
+                    </h2>
+
+                </div>
+
+
+                <button
+                    class="details-close"
+                    id="closeDetails"
+                >
+                    ×
+                </button>
+
+            </div>
+
+
+            <div
+                class="details-content"
+                id="detailsContent"
+            >
+
+                <!-- CATEGORY -->
+
+                <div class="details-category">
+                    <span id="detailsCategory">
+                        Category
+                    </span>
+                </div>
+
+
+                <!-- RATINGS -->
+
+                <div class="rating-grid">
+
+
+                    <!-- DANGER -->
+
+                    <div class="rating-card">
+
+                        <span class="rating-title">
+                            Danger
+                        </span>
+
+                        <div
+                            class="rating-value"
+                            id="detailsDanger"
+                        >
+                            —
+                        </div>
+
+                        <span
+                            class="rating-description"
+                            id="dangerDescription"
+                        >
+                            —
+                        </span>
+
+                    </div>
+
+
+                    <!-- ACCESS -->
+
+                    <div class="rating-card">
+
+                        <span class="rating-title">
+                            Accessibility
+                        </span>
+
+                        <div
+                            class="rating-value"
+                            id="detailsAccessibility"
+                        >
+                            —
+                        </div>
+
+                        <span
+                            class="rating-description"
+                            id="accessDescription"
+                        >
+                            —
+                        </span>
+
+                    </div>
+
+                </div>
+
+
+                <!-- DESCRIPTION -->
+
+                <div class="details-section">
+
+                    <h3>
+                        Description
+                    </h3>
+
+                    <p id="detailsDescription">
+                        No description provided.
+                    </p>
+
+                </div>
+
+
+                <!-- LOCATION DATA -->
+
+                <div class="details-section">
+
+                    <h3>
+                        Location Data
+                    </h3>
+
+
+                    <div class="data-row">
+
+                        <span>
+                            Latitude
+                        </span>
+
+                        <strong id="detailsLatitude">
+                            —
+                        </strong>
+
+                    </div>
+
+
+                    <div class="data-row">
+
+                        <span>
+                            Longitude
+                        </span>
+
+                        <strong id="detailsLongitude">
+                            —
+                        </strong>
+
+                    </div>
+
+
+                    <div class="data-row">
+
+                        <span>
+                            Added
+                        </span>
+
+                        <strong id="detailsDate">
+                            —
+                        </strong>
+
+                    </div>
+
+                </div>
+
+
+                <!-- ACTIONS -->
+
+                <div class="details-actions">
+
+                    <button
+                        class="edit-location-btn"
+                        id="editLocationBtn"
+                    >
+                        Edit Location
+                    </button>
+
+                    <button
+                        class="delete-location-btn"
+                        id="deleteLocationBtn"
+                    >
+                        Delete Location
+                    </button>
+
+                    <button
+                        class="close-location-btn"
+                        id="closeLocationBtn"
+                    >
+                        Close
+                    </button>
+
+                </div>
+
+            </div>
+
+        </aside>
+
+    </main>
+
+</div>
+
+
+<!-- =========================================
+     ADD / EDIT LOCATION MODAL
+========================================== -->
+
+<div
+    class="modal-overlay"
+    id="locationModal"
+>
+
+    <div class="location-modal">
+
+        <div class="modal-header">
+
+            <div>
+
+                <span class="modal-label">
+                    LOCATION
+                </span>
+
+                <h2 id="modalTitle">
+                    Add Location
+                </h2>
+
+                <p>
+                    Add information about this location.
+                </p>
+
+            </div>
+
+
+            <button
+                class="modal-close"
+                id="closeModal"
+            >
+                ×
+            </button>
+
+        </div>
+
+
+        <form id="locationForm">
+
+
+            <!-- NAME -->
+
+            <div class="form-group">
+
+                <label for="locationName">
+                    Location Name
+                </label>
+
+                <input
+                    type="text"
+                    id="locationName"
+                    placeholder="Enter location name"
+                    required
+                >
+
+            </div>
+
+
+            <!-- DESCRIPTION -->
+
+            <div class="form-group">
+
+                <label for="locationDescription">
+                    Description
+                </label>
+
+                <textarea
+                    id="locationDescription"
+                    placeholder="Describe this location..."
+                    rows="4"
+                ></textarea>
+
+            </div>
+
+
+            <!-- CATEGORY -->
+
+            <div class="form-group">
+
+                <label for="locationCategory">
+                    Category
+                </label>
+
+                <select id="locationCategory">
+
+                    <option value="outdoor">
+                        Outdoor
+                    </option>
+
+                    <option value="indoor">
+                        Indoor
+                    </option>
+
+                    <option value="recreation">
+                        Recreation
+                    </option>
+
+                    <option value="historical">
+                        Historical
+                    </option>
+
+                    <option value="natural">
+                        Natural
+                    </option>
+
+                    <option value="other">
+                        Other
+                    </option>
+
+                </select>
+
+            </div>
+
+
+            <!-- DANGER -->
+
+            <div class="form-group">
+
+                <label for="locationDanger">
+                    Danger Level
+                </label>
+
+                <select id="locationDanger">
+
+                    <option value="1">
+                        Level 1 — Very Low
+                    </option>
+
+                    <option value="2">
+                        Level 2 — Low
+                    </option>
+
+                    <option value="3">
+                        Level 3 — Moderate
+                    </option>
+
+                    <option value="4">
+                        Level 4 — High
+                    </option>
+
+                    <option value="5">
+                        Level 5 — Extreme
+                    </option>
+
+                </select>
+
+            </div>
+
+
+            <!-- ACCESSIBILITY -->
+
+            <div class="form-group">
+
+                <label for="locationAccessibility">
+                    Accessibility Level
+                </label>
+
+                <select id="locationAccessibility">
+
+                    <option value="1">
+                        Level 1 — Easy
+                    </option>
+
+                    <option value="2">
+                        Level 2 — Limited
+                    </option>
+
+                    <option value="3">
+                        Level 3 — Difficult
+                    </option>
+
+                    <option value="4">
+                        Level 4 — Restricted
+                    </option>
+
+                    <option value="5">
+                        Level 5 — No Public Access
+                    </option>
+
+                </select>
+
+            </div>
+
+
+            <!-- COORDINATES -->
+
+            <div class="coordinate-box">
+
+                <div>
+
+                    <span>
+                        Latitude
+                    </span>
+
+                    <strong id="modalLatitude">
+                        --
+                    </strong>
+
+                </div>
+
+
+                <div>
+
+                    <span>
+                        Longitude
+                    </span>
+
+                    <strong id="modalLongitude">
+                        --
+                    </strong>
+
+                </div>
+
+            </div>
+
+
+            <!-- ACTIONS -->
+
+            <div class="modal-actions">
+
+                <button
+                    type="button"
+                    class="cancel-btn"
+                    id="cancelLocation"
+                >
+                    Cancel
+                </button>
+
+
+                <button
+                    type="submit"
+                    class="save-btn"
+                >
+                    Save Location
+                </button>
+
+            </div>
+
+        </form>
+
+    </div>
+
+</div>
+
+
+<script
+    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    crossorigin=""
+></script>
+
+<script src="app.js"></script>
+
+</body>
+</html>
