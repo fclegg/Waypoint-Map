@@ -1,6 +1,7 @@
 /* =========================================
    WAYPOINT
-   app.js
+   COMPLETE APP.JS
+   Phase 5 + Phase 6 + Real Maps
 ========================================= */
 
 
@@ -9,26 +10,93 @@
 ========================================= */
 
 const map = L.map("map", {
+    center: [39.8283, -98.5795],
+    zoom: 4,
+    minZoom: 3,
+    maxZoom: 19,
     zoomControl: true
-}).setView(
-    [35.4676, -97.5164],
-    10
-);
+});
 
 
 /* =========================================
-   MAP TILES
+   BASEMAPS
 ========================================= */
 
-L.tileLayer(
-    "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
+/* Real street map */
+const streetsLayer = L.tileLayer(
+    "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
     {
+        maxZoom: 19,
         attribution:
-            '&copy; OpenStreetMap contributors &copy; CARTO',
-        subdomains: "abcd",
-        maxZoom: 20
+            '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a> contributors'
+    }
+);
+
+
+/* Satellite imagery */
+const satelliteLayer = L.tileLayer(
+    "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+    {
+        maxZoom: 19,
+        attribution:
+            "Tiles &copy; Esri"
+    }
+);
+
+
+/* Streets is the default */
+streetsLayer.addTo(map);
+
+
+/* Basemap selector */
+L.control.layers(
+    {
+        "Streets": streetsLayer,
+        "Satellite": satelliteLayer
+    },
+    null,
+    {
+        collapsed: true,
+        position: "topright"
     }
 ).addTo(map);
+
+
+/* =========================================
+   APPLICATION STATE
+========================================= */
+
+const state = {
+
+    locations: [],
+
+    markers: [],
+
+    selectedCoordinates: null,
+
+    selectedLocationId: null,
+
+    addingLocation: false,
+
+    editingLocation: false,
+
+    editingLocationId: null,
+
+    filters: {
+
+        danger: [],
+
+        accessibility: [],
+
+        category: "all",
+
+        search: "",
+
+        sort: "newest"
+
+    }
+
+};
 
 
 /* =========================================
@@ -39,117 +107,99 @@ const sidebar =
     document.querySelector(".sidebar");
 
 const sidebarToggle =
-    document.getElementById("sidebarToggle");
-
-const addLocationBtn =
-    document.getElementById("addLocationBtn");
+    document.getElementById(
+        "sidebarToggle"
+    );
 
 const searchInput =
-    document.getElementById("searchInput");
+    document.getElementById(
+        "searchInput"
+    );
 
-const locationCount =
-    document.getElementById("locationCount");
+const resetFilters =
+    document.getElementById(
+        "resetFilters"
+    );
 
-const coordinates =
-    document.getElementById("coordinates");
-
-const locateBtn =
-    document.getElementById("locateBtn");
-
-
-/* Directory */
-
-const locationList =
-    document.getElementById("locationList");
-
-const directoryCount =
-    document.getElementById("directoryCount");
+const categoryFilter =
+    document.getElementById(
+        "categoryFilter"
+    );
 
 const sortFilter =
-    document.getElementById("sortFilter");
-
-
-/* Details Panel */
-
-const detailsPanel =
-    document.getElementById("detailsPanel");
-
-const closeDetails =
-    document.getElementById("closeDetails");
-
-const closeLocationBtn =
-    document.getElementById("closeLocationBtn");
-
-const detailsName =
-    document.getElementById("detailsName");
-
-const detailsCategory =
-    document.getElementById("detailsCategory");
-
-const detailsDanger =
-    document.getElementById("detailsDanger");
-
-const dangerDescription =
-    document.getElementById("dangerDescription");
-
-const detailsAccessibility =
     document.getElementById(
-        "detailsAccessibility"
+        "sortFilter"
     );
 
-const accessDescription =
+const locationCount =
     document.getElementById(
-        "accessDescription"
+        "locationCount"
     );
 
-const detailsDescription =
+const coordinates =
     document.getElementById(
-        "detailsDescription"
+        "coordinates"
     );
 
-const detailsLatitude =
+const locateBtn =
     document.getElementById(
-        "detailsLatitude"
+        "locateBtn"
     );
 
-const detailsLongitude =
+const addLocationBtn =
     document.getElementById(
-        "detailsLongitude"
-    );
-
-const detailsDate =
-    document.getElementById("detailsDate");
-
-const editLocationBtn =
-    document.getElementById(
-        "editLocationBtn"
-    );
-
-const deleteLocationBtn =
-    document.getElementById(
-        "deleteLocationBtn"
+        "addLocationBtn"
     );
 
 
-/* Modal */
+/* =========================================
+   DIRECTORY
+========================================= */
 
-const locationModal =
-    document.getElementById("locationModal");
+const locationList =
+    document.getElementById(
+        "locationList"
+    );
 
-const locationForm =
-    document.getElementById("locationForm");
+const directoryCount =
+    document.getElementById(
+        "directoryCount"
+    );
 
-const modalTitle =
-    document.getElementById("modalTitle");
+
+/* =========================================
+   MODAL
+========================================= */
+
+const modal =
+    document.getElementById(
+        "locationModal"
+    );
 
 const closeModal =
-    document.getElementById("closeModal");
+    document.getElementById(
+        "closeModal"
+    );
 
 const cancelLocation =
-    document.getElementById("cancelLocation");
+    document.getElementById(
+        "cancelLocation"
+    );
+
+const locationForm =
+    document.getElementById(
+        "locationForm"
+    );
+
+const modalTitle =
+    document.getElementById(
+        "modalTitle"
+    );
 
 const locationName =
-    document.getElementById("locationName");
+    document.getElementById(
+        "locationName"
+    );
 
 const locationDescription =
     document.getElementById(
@@ -183,40 +233,98 @@ const modalLongitude =
 
 
 /* =========================================
-   APPLICATION STATE
+   DETAILS PANEL
 ========================================= */
 
-const state = {
+const detailsPanel =
+    document.getElementById(
+        "detailsPanel"
+    );
 
-    locations: [],
+const closeDetails =
+    document.getElementById(
+        "closeDetails"
+    );
 
-    markers: [],
+const detailsName =
+    document.getElementById(
+        "detailsName"
+    );
 
-    selectedLocationId: null,
+const detailsCategory =
+    document.getElementById(
+        "detailsCategory"
+    );
 
-    editingLocationId: null,
+const detailsDanger =
+    document.getElementById(
+        "detailsDanger"
+    );
 
-    addingLocation: false,
+const dangerDescription =
+    document.getElementById(
+        "dangerDescription"
+    );
 
-    pendingCoordinates: null,
+const detailsAccessibility =
+    document.getElementById(
+        "detailsAccessibility"
+    );
 
-    sidebarCollapsed: false,
+const accessDescription =
+    document.getElementById(
+        "accessDescription"
+    );
 
-    filters: {
+const detailsDescription =
+    document.getElementById(
+        "detailsDescription"
+    );
 
-        danger: [],
+const detailsLatitude =
+    document.getElementById(
+        "detailsLatitude"
+    );
 
-        accessibility: [],
+const detailsLongitude =
+    document.getElementById(
+        "detailsLongitude"
+    );
 
-        category: "all",
+const detailsDate =
+    document.getElementById(
+        "detailsDate"
+    );
 
-        search: "",
+const editLocationBtn =
+    document.getElementById(
+        "editLocationBtn"
+    );
 
-        sort: "newest"
+const deleteLocationBtn =
+    document.getElementById(
+        "deleteLocationBtn"
+    );
 
-    }
+const closeLocationBtn =
+    document.getElementById(
+        "closeLocationBtn"
+    );
 
-};
+
+/* =========================================
+   MOBILE
+========================================= */
+
+const mobileMenuBtn =
+    document.getElementById(
+        "mobileMenuBtn"
+    );
+
+const mobileSidebarBackdrop =
+    document.getElementById(
+        "mobileSidebarBackdrop"
+    );
 
 
 /* =========================================
@@ -227,41 +335,189 @@ const STORAGE_KEY =
     "waypointLocations";
 
 
+/* =========================================
+   UTILITY FUNCTIONS
+========================================= */
+
+function escapeHTML(value) {
+
+    const div =
+        document.createElement(
+            "div"
+        );
+
+    div.textContent =
+        value ?? "";
+
+    return div.innerHTML;
+
+}
+
+
+function getCategoryLabel(category) {
+
+    const labels = {
+
+        outdoor:
+            "Outdoor",
+
+        indoor:
+            "Indoor",
+
+        recreation:
+            "Recreation",
+
+        historical:
+            "Historical",
+
+        natural:
+            "Natural",
+
+        other:
+            "Other"
+
+    };
+
+    return (
+        labels[category] ||
+        "Other"
+    );
+
+}
+
+
+function getDangerDescription(level) {
+
+    const descriptions = {
+
+        1:
+            "Very Low",
+
+        2:
+            "Low",
+
+        3:
+            "Moderate",
+
+        4:
+            "High",
+
+        5:
+            "Extreme"
+
+    };
+
+    return (
+        descriptions[
+            Number(level)
+        ] ||
+        "Unknown"
+    );
+
+}
+
+
+function getAccessibilityDescription(
+    level
+) {
+
+    const descriptions = {
+
+        1:
+            "Easy access",
+
+        2:
+            "Limited access",
+
+        3:
+            "Difficult access",
+
+        4:
+            "Restricted",
+
+        5:
+            "No public access"
+
+    };
+
+    return (
+        descriptions[
+            Number(level)
+        ] ||
+        "Unknown"
+    );
+
+}
+
+
+function formatDate(
+    dateString
+) {
+
+    if (!dateString) {
+
+        return "Unknown";
+
+    }
+
+    const date =
+        new Date(dateString);
+
+    if (
+        Number.isNaN(
+            date.getTime()
+        )
+    ) {
+
+        return "Unknown";
+
+    }
+
+    return date.toLocaleDateString(
+        undefined,
+        {
+            year: "numeric",
+            month: "short",
+            day: "numeric"
+        }
+    );
+
+}
+
+
+/* =========================================
+   LOCAL STORAGE
+========================================= */
+
 function loadLocations() {
+
+    const saved =
+        localStorage.getItem(
+            STORAGE_KEY
+        );
+
+    if (!saved) {
+
+        state.locations = [];
+
+        return;
+
+    }
 
     try {
 
-        const stored =
-            localStorage.getItem(
-                STORAGE_KEY
-            );
-
-        if (!stored) {
-
-            state.locations = [];
-
-            return;
-
-        }
-
         const parsed =
-            JSON.parse(stored);
-
-        if (!Array.isArray(parsed)) {
-
-            state.locations = [];
-
-            return;
-
-        }
+            JSON.parse(saved);
 
         state.locations =
-            parsed;
+            Array.isArray(parsed)
+                ? parsed
+                : [];
 
     } catch (error) {
 
         console.error(
-            "Could not load locations:",
+            "Unable to load saved locations.",
             error
         );
 
@@ -286,7 +542,7 @@ function saveLocations() {
     } catch (error) {
 
         console.error(
-            "Could not save locations:",
+            "Unable to save locations.",
             error
         );
 
@@ -296,775 +552,7 @@ function saveLocations() {
 
 
 /* =========================================
-   ID GENERATION
-========================================= */
-
-function generateId() {
-
-    return (
-        Date.now().toString(36) +
-        Math.random()
-            .toString(36)
-            .substring(2, 9)
-    );
-
-}
-
-
-/* =========================================
-   ESCAPE HTML
-========================================= */
-
-function escapeHTML(value) {
-
-    if (value === null ||
-        value === undefined) {
-
-        return "";
-
-    }
-
-    return String(value)
-        .replaceAll("&", "&amp;")
-        .replaceAll("<", "&lt;")
-        .replaceAll(">", "&gt;")
-        .replaceAll('"', "&quot;")
-        .replaceAll("'", "&#039;");
-
-}
-
-
-/* =========================================
-   DATE FORMATTING
-========================================= */
-
-function formatDate(dateValue) {
-
-    if (!dateValue) {
-
-        return "Unknown";
-
-    }
-
-    const date =
-        new Date(dateValue);
-
-    if (
-        Number.isNaN(
-            date.getTime()
-        )
-    ) {
-
-        return "Unknown";
-
-    }
-
-    return date.toLocaleString(
-        undefined,
-        {
-            year: "numeric",
-            month: "short",
-            day: "numeric",
-            hour: "numeric",
-            minute: "2-digit"
-        }
-    );
-
-}
-
-
-/* =========================================
-   DANGER DESCRIPTIONS
-========================================= */
-
-function getDangerDescription(level) {
-
-    const descriptions = {
-
-        1: "Very Low",
-
-        2: "Low",
-
-        3: "Moderate",
-
-        4: "High",
-
-        5: "Extreme"
-
-    };
-
-    return (
-        descriptions[level] ||
-        "Unknown"
-    );
-
-}
-
-
-/* =========================================
-   ACCESSIBILITY DESCRIPTIONS
-========================================= */
-
-function getAccessDescription(level) {
-
-    const descriptions = {
-
-        1: "Easy",
-
-        2: "Limited",
-
-        3: "Difficult",
-
-        4: "Restricted",
-
-        5: "No Public Access"
-
-    };
-
-    return (
-        descriptions[level] ||
-        "Unknown"
-    );
-
-}
-
-
-/* =========================================
-   CATEGORY FORMATTING
-========================================= */
-
-function formatCategory(category) {
-
-    if (!category) {
-
-        return "Other";
-
-    }
-
-    return (
-        category
-            .charAt(0)
-            .toUpperCase() +
-        category.slice(1)
-    );
-
-}
-
-
-/* =========================================
-   SIDEBAR
-========================================= */
-
-sidebarToggle.addEventListener(
-    "click",
-    () => {
-
-        /*
-         * Mobile behavior is handled by
-         * the Phase 6 section near the
-         * bottom of this file.
-         */
-
-        if (
-            window.matchMedia(
-                "(max-width: 700px)"
-            ).matches
-        ) {
-
-            return;
-
-        }
-
-        state.sidebarCollapsed =
-            !state.sidebarCollapsed;
-
-        if (
-            state.sidebarCollapsed
-        ) {
-
-            sidebar.style.width = "0";
-
-            sidebar.style.minWidth = "0";
-
-            sidebar.style.overflow =
-                "hidden";
-
-        } else {
-
-            sidebar.style.width = "";
-
-            sidebar.style.minWidth = "";
-
-            sidebar.style.overflow = "";
-
-        }
-
-        setTimeout(
-            () => {
-
-                map.invalidateSize();
-
-            },
-            260
-        );
-
-    }
-);
-
-
-/* =========================================
-   MAP COORDINATES
-========================================= */
-
-map.on(
-    "mousemove",
-    event => {
-
-        coordinates.textContent =
-            `Lat: ${event.latlng.lat.toFixed(5)} | ` +
-            `Lng: ${event.latlng.lng.toFixed(5)}`;
-
-    }
-);
-
-
-map.on(
-    "mouseout",
-    () => {
-
-        coordinates.textContent =
-            "Lat: -- | Lng: --";
-
-    }
-);
-
-
-/* =========================================
-   USER LOCATION
-========================================= */
-
-locateBtn.addEventListener(
-    "click",
-    () => {
-
-        if (!navigator.geolocation) {
-
-            alert(
-                "Location services are not supported by this browser."
-            );
-
-            return;
-
-        }
-
-        locateBtn.disabled = true;
-
-        navigator.geolocation.getCurrentPosition(
-
-            position => {
-
-                const latitude =
-                    position.coords.latitude;
-
-                const longitude =
-                    position.coords.longitude;
-
-                map.flyTo(
-                    [
-                        latitude,
-                        longitude
-                    ],
-                    14,
-                    {
-                        duration: 0.8
-                    }
-                );
-
-                L.circleMarker(
-                    [
-                        latitude,
-                        longitude
-                    ],
-                    {
-                        radius: 7,
-
-                        color:
-                            "#ffffff",
-
-                        weight: 2,
-
-                        fillColor:
-                            "#6fa37c",
-
-                        fillOpacity:
-                            1
-                    }
-                )
-                    .addTo(map)
-                    .bindTooltip(
-                        "Your location"
-                    );
-
-                locateBtn.disabled =
-                    false;
-
-            },
-
-            error => {
-
-                console.error(
-                    error
-                );
-
-                alert(
-                    "Waypoint could not access your location."
-                );
-
-                locateBtn.disabled =
-                    false;
-
-            },
-
-            {
-                enableHighAccuracy:
-                    true,
-
-                timeout:
-                    10000,
-
-                maximumAge:
-                    30000
-            }
-
-        );
-
-    }
-);
-
-
-/* =========================================
-   ADD LOCATION MODE
-========================================= */
-
-addLocationBtn.addEventListener(
-    "click",
-    () => {
-
-        closeDetailsPanel();
-
-        closeMobileSidebarSafe();
-
-        state.addingLocation = true;
-
-        state.editingLocationId =
-            null;
-
-        state.pendingCoordinates =
-            null;
-
-        map.getContainer()
-            .classList.add(
-                "adding-location"
-            );
-
-        addLocationBtn.textContent =
-            "Click Map";
-
-    }
-);
-
-
-/* =========================================
-   MAP CLICK
-========================================= */
-
-map.on(
-    "click",
-    event => {
-
-        if (
-            !state.addingLocation
-        ) {
-
-            return;
-
-        }
-
-        state.pendingCoordinates = {
-
-            latitude:
-                event.latlng.lat,
-
-            longitude:
-                event.latlng.lng
-
-        };
-
-        openAddModal();
-
-    }
-);
-
-
-/* =========================================
-   OPEN ADD MODAL
-========================================= */
-
-function openAddModal() {
-
-    if (
-        !state.pendingCoordinates
-    ) {
-
-        return;
-
-    }
-
-    state.editingLocationId =
-        null;
-
-    modalTitle.textContent =
-        "Add Location";
-
-    locationName.value = "";
-
-    locationDescription.value =
-        "";
-
-    locationCategory.value =
-        "outdoor";
-
-    locationDanger.value = "1";
-
-    locationAccessibility.value =
-        "1";
-
-    modalLatitude.textContent =
-        state.pendingCoordinates
-            .latitude
-            .toFixed(6);
-
-    modalLongitude.textContent =
-        state.pendingCoordinates
-            .longitude
-            .toFixed(6);
-
-    locationModal.classList.add(
-        "visible"
-    );
-
-    setTimeout(
-        () => {
-
-            locationName.focus();
-
-        },
-        100
-    );
-
-}
-
-
-/* =========================================
-   OPEN EDIT MODAL
-========================================= */
-
-function openEditModal(
-    locationId
-) {
-
-    const location =
-        state.locations.find(
-            item =>
-                item.id ===
-                locationId
-        );
-
-    if (!location) {
-
-        return;
-
-    }
-
-    state.editingLocationId =
-        locationId;
-
-    state.pendingCoordinates = {
-
-        latitude:
-            Number(
-                location.latitude
-            ),
-
-        longitude:
-            Number(
-                location.longitude
-            )
-
-    };
-
-    modalTitle.textContent =
-        "Edit Location";
-
-    locationName.value =
-        location.name || "";
-
-    locationDescription.value =
-        location.description || "";
-
-    locationCategory.value =
-        location.category ||
-        "other";
-
-    locationDanger.value =
-        String(
-            location.danger || 1
-        );
-
-    locationAccessibility.value =
-        String(
-            location.accessibility ||
-            1
-        );
-
-    modalLatitude.textContent =
-        Number(
-            location.latitude
-        ).toFixed(6);
-
-    modalLongitude.textContent =
-        Number(
-            location.longitude
-        ).toFixed(6);
-
-    locationModal.classList.add(
-        "visible"
-    );
-
-}
-
-
-/* =========================================
-   CLOSE MODAL
-========================================= */
-
-function closeLocationModal() {
-
-    locationModal.classList.remove(
-        "visible"
-    );
-
-    state.addingLocation =
-        false;
-
-    state.pendingCoordinates =
-        null;
-
-    map.getContainer()
-        .classList.remove(
-            "adding-location"
-        );
-
-    addLocationBtn.innerHTML =
-        "<span>＋</span>Add Location";
-
-}
-
-
-closeModal.addEventListener(
-    "click",
-    closeLocationModal
-);
-
-
-cancelLocation.addEventListener(
-    "click",
-    closeLocationModal
-);
-
-
-locationModal.addEventListener(
-    "click",
-    event => {
-
-        if (
-            event.target ===
-            locationModal
-        ) {
-
-            closeLocationModal();
-
-        }
-
-    }
-);
-
-
-/* =========================================
-   SAVE LOCATION
-========================================= */
-
-locationForm.addEventListener(
-    "submit",
-    event => {
-
-        event.preventDefault();
-
-        const name =
-            locationName
-                .value
-                .trim();
-
-        if (!name) {
-
-            locationName.focus();
-
-            return;
-
-        }
-
-        if (
-            !state.pendingCoordinates
-        ) {
-
-            return;
-
-        }
-
-        const locationData = {
-
-            name,
-
-            description:
-                locationDescription
-                    .value
-                    .trim(),
-
-            category:
-                locationCategory
-                    .value,
-
-            danger:
-                Number(
-                    locationDanger
-                        .value
-                ),
-
-            accessibility:
-                Number(
-                    locationAccessibility
-                        .value
-                ),
-
-            latitude:
-                Number(
-                    state
-                        .pendingCoordinates
-                        .latitude
-                ),
-
-            longitude:
-                Number(
-                    state
-                        .pendingCoordinates
-                        .longitude
-                )
-
-        };
-
-
-        if (
-            state.editingLocationId
-        ) {
-
-            const index =
-                state.locations
-                    .findIndex(
-                        item =>
-                            item.id ===
-                            state
-                                .editingLocationId
-                    );
-
-            if (index !== -1) {
-
-                state.locations[index] = {
-
-                    ...state.locations[
-                        index
-                    ],
-
-                    ...locationData,
-
-                    updatedAt:
-                        new Date()
-                            .toISOString()
-
-                };
-
-            }
-
-        } else {
-
-            const newLocation = {
-
-                id:
-                    generateId(),
-
-                ...locationData,
-
-                createdAt:
-                    new Date()
-                        .toISOString(),
-
-                updatedAt:
-                    null
-
-            };
-
-            state.locations.push(
-                newLocation
-            );
-
-            state.selectedLocationId =
-                newLocation.id;
-
-        }
-
-
-        const locationToFocus =
-            state.editingLocationId ||
-            state.selectedLocationId;
-
-
-        saveLocations();
-
-        closeLocationModal();
-
-        renderLocations();
-
-
-        if (locationToFocus) {
-
-            setTimeout(
-                () => {
-
-                    focusLocation(
-                        locationToFocus
-                    );
-
-                },
-                50
-            );
-
-        }
-
-    }
-);
-
-
-/* =========================================
-   FILTER HELPERS
+   FILTER LOGIC
 ========================================= */
 
 function passesFilters(
@@ -1082,11 +570,13 @@ function passesFilters(
         );
 
 
+    /* Danger */
+
     if (
-        state.filters.danger
-            .length > 0 &&
-        !state.filters.danger
-            .includes(danger)
+        state.filters.danger.length > 0 &&
+        !state.filters.danger.includes(
+            danger
+        )
     ) {
 
         return false;
@@ -1094,27 +584,27 @@ function passesFilters(
     }
 
 
+    /* Accessibility */
+
     if (
-        state.filters
-            .accessibility
-            .length > 0 &&
-        !state.filters
-            .accessibility
-            .includes(
-                accessibility
-            )
+        state.filters.accessibility.length > 0 &&
+        !state.filters.accessibility.includes(
+            accessibility
+        )
     ) {
 
         return false;
 
     }
 
+
+    /* Category */
 
     if (
         state.filters.category !==
-        "all" &&
+            "all" &&
         location.category !==
-        state.filters.category
+            state.filters.category
     ) {
 
         return false;
@@ -1122,13 +612,11 @@ function passesFilters(
     }
 
 
-    const search =
+    /* Search */
+
+    if (
         state.filters.search
-            .trim()
-            .toLowerCase();
-
-
-    if (search) {
+    ) {
 
         const searchableText = [
 
@@ -1149,7 +637,7 @@ function passesFilters(
 
         if (
             !searchableText.includes(
-                search
+                state.filters.search
             )
         ) {
 
@@ -1166,20 +654,7 @@ function passesFilters(
 
 
 /* =========================================
-   GET FILTERED LOCATIONS
-========================================= */
-
-function getFilteredLocations() {
-
-    return state.locations.filter(
-        passesFilters
-    );
-
-}
-
-
-/* =========================================
-   SORT LOCATIONS
+   SORTING
 ========================================= */
 
 function sortLocations(
@@ -1245,12 +720,8 @@ function sortLocations(
 
             sorted.sort(
                 (a, b) =>
-                    Number(
-                        b.danger
-                    ) -
-                    Number(
-                        a.danger
-                    )
+                    Number(b.danger) -
+                    Number(a.danger)
             );
 
             break;
@@ -1260,12 +731,8 @@ function sortLocations(
 
             sorted.sort(
                 (a, b) =>
-                    Number(
-                        a.danger
-                    ) -
-                    Number(
-                        b.danger
-                    )
+                    Number(a.danger) -
+                    Number(b.danger)
             );
 
             break;
@@ -1302,6 +769,7 @@ function sortLocations(
 
 
         case "newest":
+
         default:
 
             sorted.sort(
@@ -1323,135 +791,58 @@ function sortLocations(
 
 }
 
-/* =========================================
-   MARKER HELPERS
-========================================= */
-
-function getMarkerClass(level) {
-
-    const numericLevel =
-        Number(level);
-
-    if (
-        numericLevel >= 1 &&
-        numericLevel <= 5
-    ) {
-
-        return `level-${numericLevel}-marker`;
-
-    }
-
-    return "level-1-marker";
-
-}
-
 
 /* =========================================
-   CREATE MARKER
+   LOCATION COUNT
 ========================================= */
 
-function createLocationMarker(
-    location
+function updateLocationCount(
+    visibleCount
 ) {
 
-    const latitude =
-        Number(
-            location.latitude
-        );
-
-    const longitude =
-        Number(
-            location.longitude
-        );
+    const total =
+        state.locations.length;
 
 
-    if (
-        Number.isNaN(latitude) ||
-        Number.isNaN(longitude)
-    ) {
+    if (!locationCount) {
 
-        return null;
+        return;
 
     }
 
 
-    const marker =
-        L.marker(
-            [
-                latitude,
-                longitude
-            ],
-            {
-                icon:
-                    L.divIcon({
+    if (total === 0) {
 
-                        className:
-                            "",
+        locationCount.textContent =
+            "0 locations mapped";
 
-                        html:
-                            `<div class="waypoint-marker ${getMarkerClass(
-                                location.danger
-                            )}" data-location-id="${escapeHTML(
-                                location.id
-                            )}"></div>`,
+        return;
 
-                        iconSize:
-                            [26, 26],
-
-                        iconAnchor:
-                            [13, 13]
-
-                    }),
-
-                title:
-                    location.name ||
-                    "Waypoint"
-
-            }
-        );
+    }
 
 
-    marker.locationId =
-        location.id;
+    if (
+        visibleCount === total
+    ) {
+
+        locationCount.textContent =
+            total === 1
+                ? "1 location mapped"
+                : `${total} locations mapped`;
+
+        return;
+
+    }
 
 
-    marker.on(
-        "click",
-        () => {
-
-            focusLocation(
-                location.id
-            );
-
-        }
-    );
-
-
-    marker.bindTooltip(
-        escapeHTML(
-            location.name ||
-            "Waypoint"
-        ),
-        {
-            direction:
-                "top",
-
-            offset:
-                [0, -12],
-
-            opacity:
-                0.95
-        }
-    );
-
-
-    return marker;
+    locationCount.textContent =
+        `${visibleCount} of ${total} locations`;
 
 }
 
 
 /* =========================================
-   GET MARKER BY LOCATION ID
+   MARKER HELPERS
 ========================================= */
 
 function getMarkerByLocationId(
@@ -1466,10 +857,6 @@ function getMarkerByLocationId(
 
 }
 
-
-/* =========================================
-   HIGHLIGHT MARKER
-========================================= */
 
 function highlightMarker(
     locationId
@@ -1498,10 +885,63 @@ function highlightMarker(
 
             }
 
+            const selected =
+                marker.locationId ===
+                locationId;
+
+
             markerElement.classList.toggle(
                 "selected-marker",
-                marker.locationId ===
-                    locationId
+                selected
+            );
+
+
+            /*
+             * Keep the selected marker
+             * above nearby markers.
+             */
+
+            marker.setZIndexOffset(
+                selected
+                    ? 1000
+                    : 0
+            );
+
+        }
+    );
+
+}
+
+
+function clearMarkerHighlights() {
+
+    state.markers.forEach(
+        marker => {
+
+            const element =
+                marker.getElement();
+
+            if (element) {
+
+                const markerElement =
+                    element.querySelector(
+                        ".waypoint-marker"
+                    );
+
+                if (
+                    markerElement
+                ) {
+
+                    markerElement.classList.remove(
+                        "selected-marker"
+                    );
+
+                }
+
+            }
+
+            marker.setZIndexOffset(
+                0
             );
 
         }
@@ -1511,7 +951,7 @@ function highlightMarker(
 
 
 /* =========================================
-   HIGHLIGHT DIRECTORY CARD
+   DIRECTORY HIGHLIGHT
 ========================================= */
 
 function highlightDirectoryCard(
@@ -1525,37 +965,37 @@ function highlightDirectoryCard(
     }
 
 
-    const cards =
-        locationList.querySelectorAll(
+    locationList
+        .querySelectorAll(
             ".location-card"
+        )
+        .forEach(
+            card => {
+
+                const selected =
+                    card.dataset.locationId ===
+                    String(locationId);
+
+
+                card.classList.toggle(
+                    "selected-location-card",
+                    selected
+                );
+
+            }
         );
-
-
-    cards.forEach(
-        card => {
-
-            card.classList.toggle(
-                "selected-location-card",
-                card.dataset.locationId ===
-                    String(locationId)
-            );
-
-        }
-    );
 
 
     const selectedCard =
         locationList.querySelector(
-            `.location-card[data-location-id="${CSS.escape(
+            `[data-location-id="${CSS.escape(
                 String(locationId)
             )}"]`
         );
 
 
     if (
-        selectedCard &&
-        typeof selectedCard.scrollIntoView ===
-            "function"
+        selectedCard
     ) {
 
         selectedCard.scrollIntoView(
@@ -1574,34 +1014,411 @@ function highlightDirectoryCard(
 
 
 /* =========================================
-   CLEAR HIGHLIGHTS
+   CREATE MARKER
 ========================================= */
 
-function clearLocationHighlights() {
+function createMarker(
+    location
+) {
+
+    const danger =
+        Number(
+            location.danger
+        ) || 1;
+
+
+    const markerIcon =
+        L.divIcon({
+
+            className:
+                "",
+
+            html: `
+                <div
+                    class="waypoint-marker level-${danger}-marker"
+                    title="${escapeHTML(
+                        location.name
+                    )}"
+                ></div>
+            `,
+
+            iconSize:
+                [26, 26],
+
+            iconAnchor:
+                [13, 13],
+
+            popupAnchor:
+                [0, -13]
+
+        });
+
+
+    const marker =
+        L.marker(
+            [
+                Number(
+                    location.latitude
+                ),
+
+                Number(
+                    location.longitude
+                )
+            ],
+            {
+                icon:
+                    markerIcon
+            }
+        );
+
+
+    marker.locationId =
+        location.id;
+
+
+    marker.on(
+        "click",
+        () => {
+
+            focusLocation(
+                location.id
+            );
+
+        }
+    );
+
+
+    marker.addTo(map);
+
+    state.markers.push(
+        marker
+    );
+
+
+    return marker;
+
+}
+
+
+/* =========================================
+   DIRECTORY
+========================================= */
+
+function renderLocationDirectory() {
+
+    if (!locationList) {
+
+        return;
+
+    }
+
+
+    const filtered =
+        state.locations.filter(
+            passesFilters
+        );
+
+
+    const visibleLocations =
+        sortLocations(
+            filtered
+        );
+
+
+    if (directoryCount) {
+
+        directoryCount.textContent =
+            visibleLocations.length;
+
+    }
+
+
+    locationList.innerHTML =
+        "";
+
+
+    if (
+        visibleLocations.length === 0
+    ) {
+
+        const emptyState =
+            document.createElement(
+                "div"
+            );
+
+        emptyState.className =
+            "location-list-empty";
+
+
+        emptyState.textContent =
+            state.locations.length === 0
+                ? "No locations have been added yet."
+                : "No locations match your filters.";
+
+
+        locationList.appendChild(
+            emptyState
+        );
+
+        return;
+
+    }
+
+
+    visibleLocations.forEach(
+        location => {
+
+            const card =
+                document.createElement(
+                    "div"
+                );
+
+
+            card.className =
+                "location-card";
+
+
+            if (
+                state.selectedLocationId ===
+                location.id
+            ) {
+
+                card.classList.add(
+                    "selected-location-card"
+                );
+
+            }
+
+
+            card.dataset.locationId =
+                location.id;
+
+
+            card.setAttribute(
+                "role",
+                "listitem"
+            );
+
+
+            card.setAttribute(
+                "tabindex",
+                "0"
+            );
+
+
+            card.setAttribute(
+                "aria-label",
+                location.name ||
+                    "Unnamed location"
+            );
+
+
+            const danger =
+                Number(
+                    location.danger
+                ) || 1;
+
+
+            const accessibility =
+                Number(
+                    location.accessibility
+                ) || 1;
+
+
+            card.innerHTML = `
+
+                <div class="location-card-header">
+
+                    <div
+                        class="location-card-name"
+                        title="${escapeHTML(
+                            location.name
+                        )}"
+                    >
+                        ${escapeHTML(
+                            location.name ||
+                            "Unnamed Location"
+                        )}
+                    </div>
+
+                    <div class="location-card-category">
+                        ${escapeHTML(
+                            getCategoryLabel(
+                                location.category
+                            )
+                        )}
+                    </div>
+
+                </div>
+
+
+                <div class="location-card-ratings">
+
+                    <div
+                        class="location-card-rating danger-${danger}"
+                    >
+
+                        <span
+                            class="location-card-rating-label"
+                        >
+                            Danger
+                        </span>
+
+                        <span
+                            class="location-card-rating-value"
+                        >
+                            ${danger}/5
+                        </span>
+
+                    </div>
+
+
+                    <div
+                        class="location-card-rating"
+                    >
+
+                        <span
+                            class="location-card-rating-label"
+                        >
+                            Access
+                        </span>
+
+                        <span
+                            class="location-card-rating-value"
+                        >
+                            ${accessibility}/5
+                        </span>
+
+                    </div>
+
+                </div>
+
+            `;
+
+
+            card.addEventListener(
+                "click",
+                () => {
+
+                    focusLocation(
+                        location.id
+                    );
+
+                }
+            );
+
+
+            card.addEventListener(
+                "keydown",
+                event => {
+
+                    if (
+                        event.key ===
+                            "Enter" ||
+                        event.key ===
+                            " "
+                    ) {
+
+                        event.preventDefault();
+
+                        focusLocation(
+                            location.id
+                        );
+
+                    }
+
+                }
+            );
+
+
+            locationList.appendChild(
+                card
+            );
+
+        }
+    );
+
+}
+
+
+/* =========================================
+   NO RESULTS
+========================================= */
+
+function updateNoResults(
+    visibleCount
+) {
+
+    let noResults =
+        document.querySelector(
+            ".no-results"
+        );
+
+
+    if (
+        visibleCount > 0 ||
+        state.locations.length === 0
+    ) {
+
+        if (noResults) {
+
+            noResults.remove();
+
+        }
+
+        return;
+
+    }
+
+
+    if (!noResults) {
+
+        noResults =
+            document.createElement(
+                "div"
+            );
+
+
+        noResults.className =
+            "no-results";
+
+
+        noResults.textContent =
+            "No locations match your filters.";
+
+
+        document
+            .querySelector(
+                ".map-container"
+            )
+            .appendChild(
+                noResults
+            );
+
+    }
+
+}
+
+
+/* =========================================
+   RENDER ALL LOCATIONS
+========================================= */
+
+function renderLocations() {
+
+    /*
+     * Remove old markers.
+     */
 
     state.markers.forEach(
         marker => {
 
-            const element =
-                marker.getElement();
-
-            if (!element) {
-
-                return;
-
-            }
-
-            const markerElement =
-                element.querySelector(
-                    ".waypoint-marker"
-                );
-
             if (
-                markerElement
+                map.hasLayer(marker)
             ) {
 
-                markerElement.classList.remove(
-                    "selected-marker"
+                map.removeLayer(
+                    marker
                 );
 
             }
@@ -1610,21 +1427,60 @@ function clearLocationHighlights() {
     );
 
 
-    if (locationList) {
+    state.markers = [];
 
-        locationList
-            .querySelectorAll(
-                ".selected-location-card"
-            )
-            .forEach(
-                card => {
 
-                    card.classList.remove(
-                        "selected-location-card"
-                    );
+    /*
+     * Get visible locations.
+     */
 
-                }
-            );
+    const visibleLocations =
+        state.locations.filter(
+            passesFilters
+        );
+
+
+    /*
+     * Create markers.
+     */
+
+    visibleLocations.forEach(
+        createMarker
+    );
+
+
+    /*
+     * Update interface.
+     */
+
+    updateLocationCount(
+        visibleLocations.length
+    );
+
+
+    updateNoResults(
+        visibleLocations.length
+    );
+
+
+    renderLocationDirectory();
+
+
+    /*
+     * Restore selection.
+     */
+
+    if (
+        state.selectedLocationId
+    ) {
+
+        highlightMarker(
+            state.selectedLocationId
+        );
+
+        highlightDirectoryCard(
+            state.selectedLocationId
+        );
 
     }
 
@@ -1655,9 +1511,8 @@ function focusLocation(
 
 
     /*
-     * If the location is currently
-     * hidden by filters, clear them
-     * so the user can see it.
+     * If filters hide this location,
+     * remove the filters first.
      */
 
     if (
@@ -1712,8 +1567,20 @@ function focusLocation(
     );
 
 
-    highlightMarker(
-        locationId
+    /*
+     * Wait briefly for Leaflet to
+     * finish creating the marker DOM.
+     */
+
+    setTimeout(
+        () => {
+
+            highlightMarker(
+                locationId
+            );
+
+        },
+        100
     );
 
 
@@ -1721,418 +1588,8 @@ function focusLocation(
         locationId
     );
 
-}
 
-
-/* =========================================
-   RENDER LOCATIONS
-========================================= */
-
-function renderLocations() {
-
-    /*
-     * Remove existing markers.
-     */
-
-    state.markers.forEach(
-        marker => {
-
-            if (
-                map.hasLayer(marker)
-            ) {
-
-                map.removeLayer(
-                    marker
-                );
-
-            }
-
-        }
-    );
-
-
-    state.markers = [];
-
-
-    /*
-     * Build filtered marker set.
-     */
-
-    const filteredLocations =
-        getFilteredLocations();
-
-
-    filteredLocations.forEach(
-        location => {
-
-            const marker =
-                createLocationMarker(
-                    location
-                );
-
-
-            if (!marker) {
-
-                return;
-
-            }
-
-
-            marker.addTo(map);
-
-
-            state.markers.push(
-                marker
-            );
-
-        }
-    );
-
-
-    /*
-     * Update counts.
-     */
-
-    const total =
-        state.locations.length;
-
-    const visible =
-        filteredLocations.length;
-
-
-    if (locationCount) {
-
-        if (
-            total === visible
-        ) {
-
-            locationCount.textContent =
-                `${total} ${
-                    total === 1
-                        ? "location"
-                        : "locations"
-                } mapped`;
-
-        } else {
-
-            locationCount.textContent =
-                `${visible} of ${total} locations visible`;
-
-        }
-
-    }
-
-
-    /*
-     * Show / hide map no-results
-     * message.
-     */
-
-    updateNoResultsState();
-
-
-    /*
-     * Render directory.
-     */
-
-    renderLocationDirectory();
-
-
-    /*
-     * Restore selected marker
-     * and card.
-     */
-
-    if (
-        state.selectedLocationId
-    ) {
-
-        highlightDirectoryCard(
-            state.selectedLocationId
-        );
-
-        highlightMarker(
-            state.selectedLocationId
-        );
-
-    }
-
-}
-
-
-/* =========================================
-   RENDER DIRECTORY
-========================================= */
-
-function renderLocationDirectory() {
-
-    if (!locationList) {
-
-        return;
-
-    }
-
-
-    const filteredLocations =
-        getFilteredLocations();
-
-
-    const sortedLocations =
-        sortLocations(
-            filteredLocations
-        );
-
-
-    /*
-     * Directory count.
-     */
-
-    if (directoryCount) {
-
-        directoryCount.textContent =
-            sortedLocations.length;
-
-    }
-
-
-    /*
-     * Empty state.
-     */
-
-    if (
-        sortedLocations.length === 0
-    ) {
-
-        locationList.innerHTML = `
-
-            <div class="location-list-empty">
-
-                No locations match
-                your current filters.
-
-            </div>
-
-        `;
-
-        return;
-
-    }
-
-
-    /*
-     * Build cards.
-     */
-
-    locationList.innerHTML =
-        sortedLocations
-            .map(
-                location => {
-
-                    const danger =
-                        Number(
-                            location.danger
-                        );
-
-                    const access =
-                        Number(
-                            location.accessibility
-                        );
-
-
-                    return `
-
-                        <div
-                            class="location-card ${
-                                state.selectedLocationId ===
-                                location.id
-                                    ? "selected-location-card"
-                                    : ""
-                            }"
-                            data-location-id="${escapeHTML(
-                                location.id
-                            )}"
-                            role="listitem"
-                            tabindex="0"
-                            aria-label="${escapeHTML(
-                                location.name ||
-                                "Unnamed location"
-                            )}"
-                        >
-
-                            <div class="location-card-header">
-
-                                <div
-                                    class="location-card-name"
-                                    title="${escapeHTML(
-                                        location.name ||
-                                        ""
-                                    )}"
-                                >
-                                    ${escapeHTML(
-                                        location.name ||
-                                        "Unnamed location"
-                                    )}
-                                </div>
-
-                                <div class="location-card-category">
-                                    ${escapeHTML(
-                                        formatCategory(
-                                            location.category
-                                        )
-                                    )}
-                                </div>
-
-                            </div>
-
-
-                            <div class="location-card-ratings">
-
-                                <div
-                                    class="location-card-rating danger-${danger}"
-                                >
-
-                                    <span class="location-card-rating-label">
-                                        Danger
-                                    </span>
-
-                                    <span class="location-card-rating-value">
-                                        ${danger}/5
-                                    </span>
-
-                                </div>
-
-
-                                <div class="location-card-rating">
-
-                                    <span class="location-card-rating-label">
-                                        Access
-                                    </span>
-
-                                    <span class="location-card-rating-value">
-                                        ${access}/5
-                                    </span>
-
-                                </div>
-
-                            </div>
-
-                        </div>
-
-                    `;
-
-                }
-            )
-            .join("");
-
-
-    /*
-     * Attach card interactions.
-     */
-
-    locationList
-        .querySelectorAll(
-            ".location-card"
-        )
-        .forEach(
-            card => {
-
-                const locationId =
-                    card.dataset.locationId;
-
-
-                card.addEventListener(
-                    "click",
-                    () => {
-
-                        focusLocation(
-                            locationId
-                        );
-
-                    }
-                );
-
-
-                card.addEventListener(
-                    "keydown",
-                    event => {
-
-                        if (
-                            event.key ===
-                                "Enter" ||
-                            event.key ===
-                                " "
-                        ) {
-
-                            event.preventDefault();
-
-                            focusLocation(
-                                locationId
-                            );
-
-                        }
-
-                    }
-                );
-
-            }
-        );
-
-}
-
-
-/* =========================================
-   NO RESULTS STATE
-========================================= */
-
-function updateNoResultsState() {
-
-    const existing =
-        document.querySelector(
-            ".no-results"
-        );
-
-
-    const filtered =
-        getFilteredLocations();
-
-
-    if (
-        filtered.length === 0 &&
-        state.locations.length > 0
-    ) {
-
-        if (!existing) {
-
-            const message =
-                document.createElement(
-                    "div"
-                );
-
-            message.className =
-                "no-results";
-
-            message.textContent =
-                "No locations match your filters.";
-
-            document
-                .querySelector(
-                    ".map-container"
-                )
-                .appendChild(
-                    message
-                );
-
-        }
-
-    } else {
-
-        if (existing) {
-
-            existing.remove();
-
-        }
-
-    }
+    closeMobileSidebar();
 
 }
 
@@ -2170,7 +1627,7 @@ function openDetails(
 
 
     detailsCategory.textContent =
-        formatCategory(
+        getCategoryLabel(
             location.category
         );
 
@@ -2202,7 +1659,7 @@ function openDetails(
 
 
     accessDescription.textContent =
-        getAccessDescription(
+        getAccessibilityDescription(
             accessibility
         );
 
@@ -2240,15 +1697,22 @@ function openDetails(
     );
 
 
-    highlightMarker(
-        locationId
+    setTimeout(
+        () => {
+
+            highlightMarker(
+                locationId
+            );
+
+        },
+        50
     );
 
 }
 
 
 /* =========================================
-   CLOSE DETAILS PANEL
+   CLOSE DETAILS
 ========================================= */
 
 function closeDetailsPanel() {
@@ -2257,17 +1721,34 @@ function closeDetailsPanel() {
         "visible"
     );
 
+
     state.selectedLocationId =
         null;
 
-    clearLocationHighlights();
+
+    clearMarkerHighlights();
+
+
+    if (locationList) {
+
+        locationList
+            .querySelectorAll(
+                ".selected-location-card"
+            )
+            .forEach(
+                card => {
+
+                    card.classList.remove(
+                        "selected-location-card"
+                    );
+
+                }
+            );
+
+    }
 
 }
 
-
-/* =========================================
-   DETAILS CLOSE BUTTONS
-========================================= */
 
 closeDetails.addEventListener(
     "click",
@@ -2282,6 +1763,393 @@ closeLocationBtn.addEventListener(
 
 
 /* =========================================
+   ADD LOCATION
+========================================= */
+
+addLocationBtn.addEventListener(
+    "click",
+    () => {
+
+        closeDetailsPanel();
+
+        closeMobileSidebar();
+
+
+        state.addingLocation =
+            true;
+
+
+        state.selectedCoordinates =
+            null;
+
+
+        state.editingLocation =
+            false;
+
+
+        state.editingLocationId =
+            null;
+
+
+        map.getContainer()
+            .classList.add(
+                "adding-location"
+            );
+
+
+        addLocationBtn.innerHTML =
+            "<span>⌖</span>Click Map";
+
+    }
+);
+
+
+/* =========================================
+   MAP CLICK
+========================================= */
+
+map.on(
+    "click",
+    event => {
+
+        if (
+            !state.addingLocation
+        ) {
+
+            return;
+
+        }
+
+
+        state.selectedCoordinates = {
+
+            latitude:
+                event.latlng.lat,
+
+            longitude:
+                event.latlng.lng
+
+        };
+
+
+        state.addingLocation =
+            false;
+
+
+        map.getContainer()
+            .classList.remove(
+                "adding-location"
+            );
+
+
+        addLocationBtn.innerHTML =
+            "<span>＋</span>Add Location";
+
+
+        state.editingLocation =
+            false;
+
+
+        state.editingLocationId =
+            null;
+
+
+        modalTitle.textContent =
+            "Add Location";
+
+
+        locationForm.reset();
+
+
+        modalLatitude.textContent =
+            event.latlng.lat.toFixed(6);
+
+
+        modalLongitude.textContent =
+            event.latlng.lng.toFixed(6);
+
+
+        modal.classList.add(
+            "visible"
+        );
+
+
+        setTimeout(
+            () => {
+
+                locationName.focus();
+
+            },
+            100
+        );
+
+    }
+);
+
+
+/* =========================================
+   CLOSE MODAL
+========================================= */
+
+function closeLocationModal() {
+
+    modal.classList.remove(
+        "visible"
+    );
+
+
+    locationForm.reset();
+
+
+    state.selectedCoordinates =
+        null;
+
+
+    state.addingLocation =
+        false;
+
+
+    state.editingLocation =
+        false;
+
+
+    state.editingLocationId =
+        null;
+
+
+    map.getContainer()
+        .classList.remove(
+            "adding-location"
+        );
+
+
+    addLocationBtn.innerHTML =
+        "<span>＋</span>Add Location";
+
+}
+
+
+closeModal.addEventListener(
+    "click",
+    closeLocationModal
+);
+
+
+cancelLocation.addEventListener(
+    "click",
+    closeLocationModal
+);
+
+
+modal.addEventListener(
+    "click",
+    event => {
+
+        if (
+            event.target ===
+            modal
+        ) {
+
+            closeLocationModal();
+
+        }
+
+    }
+);
+
+
+/* =========================================
+   SAVE LOCATION
+========================================= */
+
+locationForm.addEventListener(
+    "submit",
+    event => {
+
+        event.preventDefault();
+
+
+        if (
+            !state.selectedCoordinates
+        ) {
+
+            alert(
+                "Please select a location on the map."
+            );
+
+            return;
+
+        }
+
+
+        const name =
+            locationName.value.trim();
+
+
+        if (!name) {
+
+            locationName.focus();
+
+            return;
+
+        }
+
+
+        /*
+         * EDIT
+         */
+
+        if (
+            state.editingLocation
+        ) {
+
+            const location =
+                state.locations.find(
+                    item =>
+                        item.id ===
+                        state.editingLocationId
+                );
+
+
+            if (!location) {
+
+                return;
+
+            }
+
+
+            location.name =
+                name;
+
+
+            location.description =
+                locationDescription
+                    .value
+                    .trim();
+
+
+            location.category =
+                locationCategory.value;
+
+
+            location.danger =
+                Number(
+                    locationDanger.value
+                );
+
+
+            location.accessibility =
+                Number(
+                    locationAccessibility
+                        .value
+                );
+
+
+            location.latitude =
+                state.selectedCoordinates
+                    .latitude;
+
+
+            location.longitude =
+                state.selectedCoordinates
+                    .longitude;
+
+
+            location.updatedAt =
+                new Date()
+                    .toISOString();
+
+
+            saveLocations();
+
+            closeLocationModal();
+
+            renderLocations();
+
+
+            focusLocation(
+                location.id
+            );
+
+
+            return;
+
+        }
+
+
+        /*
+         * CREATE
+         */
+
+        const newLocation = {
+
+            id:
+                crypto.randomUUID(),
+
+            name,
+
+            description:
+                locationDescription
+                    .value
+                    .trim(),
+
+            category:
+                locationCategory.value,
+
+            danger:
+                Number(
+                    locationDanger.value
+                ),
+
+            accessibility:
+                Number(
+                    locationAccessibility
+                        .value
+                ),
+
+            latitude:
+                state.selectedCoordinates
+                    .latitude,
+
+            longitude:
+                state.selectedCoordinates
+                .longitude,
+
+            createdAt:
+                new Date()
+                    .toISOString(),
+
+            updatedAt:
+                null
+
+        };
+
+
+        state.locations.push(
+            newLocation
+        );
+
+
+        saveLocations();
+
+        closeLocationModal();
+
+        renderLocations();
+
+
+        state.selectedLocationId =
+            newLocation.id;
+
+
+        focusLocation(
+            newLocation.id
+        );
+
+    }
+);
+
+
+/* =========================================
    EDIT LOCATION
 ========================================= */
 
@@ -2289,22 +2157,98 @@ editLocationBtn.addEventListener(
     "click",
     () => {
 
-        if (
-            !state.selectedLocationId
-        ) {
+        const location =
+            state.locations.find(
+                item =>
+                    item.id ===
+                    state.selectedLocationId
+            );
+
+
+        if (!location) {
 
             return;
 
         }
 
-        const locationId =
-            state.selectedLocationId;
+
+        state.editingLocation =
+            true;
 
 
-        closeDetailsPanel();
+        state.editingLocationId =
+            location.id;
 
-        openEditModal(
-            locationId
+
+        state.selectedCoordinates = {
+
+            latitude:
+                Number(
+                    location.latitude
+                ),
+
+            longitude:
+                Number(
+                    location.longitude
+                )
+
+        };
+
+
+        modalTitle.textContent =
+            "Edit Location";
+
+
+        locationName.value =
+            location.name || "";
+
+
+        locationDescription.value =
+            location.description || "";
+
+
+        locationCategory.value =
+            location.category ||
+            "other";
+
+
+        locationDanger.value =
+            String(
+                location.danger || 1
+            );
+
+
+        locationAccessibility.value =
+            String(
+                location.accessibility ||
+                1
+            );
+
+
+        modalLatitude.textContent =
+            Number(
+                location.latitude
+            ).toFixed(6);
+
+
+        modalLongitude.textContent =
+            Number(
+                location.longitude
+            ).toFixed(6);
+
+
+        modal.classList.add(
+            "visible"
+        );
+
+
+        setTimeout(
+            () => {
+
+                locationName.focus();
+
+            },
+            100
         );
 
     }
@@ -2318,15 +2262,6 @@ editLocationBtn.addEventListener(
 deleteLocationBtn.addEventListener(
     "click",
     () => {
-
-        if (
-            !state.selectedLocationId
-        ) {
-
-            return;
-
-        }
-
 
         const location =
             state.locations.find(
@@ -2345,7 +2280,7 @@ deleteLocationBtn.addEventListener(
 
         const confirmed =
             window.confirm(
-                `Delete "${location.name}"?`
+                `Delete "${location.name}"? This cannot be undone.`
             );
 
 
@@ -2356,38 +2291,11 @@ deleteLocationBtn.addEventListener(
         }
 
 
-        const locationId =
-            location.id;
-
-
-        const marker =
-            getMarkerByLocationId(
-                locationId
-            );
-
-
-        if (marker) {
-
-            map.removeLayer(
-                marker
-            );
-
-        }
-
-
         state.locations =
             state.locations.filter(
                 item =>
                     item.id !==
-                    locationId
-            );
-
-
-        state.markers =
-            state.markers.filter(
-                item =>
-                    item.locationId !==
-                    locationId
+                    location.id
             );
 
 
@@ -2397,55 +2305,226 @@ deleteLocationBtn.addEventListener(
 
         saveLocations();
 
-        renderLocations();
-
         closeDetailsPanel();
+
+        renderLocations();
 
     }
 );
+
+
+/* =========================================
+   DANGER FILTERS
+========================================= */
+
+const dangerButtons =
+    document.querySelectorAll(
+        ".danger-filter"
+    );
+
+
+dangerButtons.forEach(
+    button => {
+
+        button.addEventListener(
+            "click",
+            () => {
+
+                const level =
+                    Number(
+                        button.dataset.level
+                    );
+
+
+                button.classList.toggle(
+                    "active"
+                );
+
+
+                if (
+                    button.classList.contains(
+                        "active"
+                    )
+                ) {
+
+                    if (
+                        !state.filters.danger.includes(
+                            level
+                        )
+                    ) {
+
+                        state.filters.danger.push(
+                            level
+                        );
+
+                    }
+
+                } else {
+
+                    state.filters.danger =
+                        state.filters.danger.filter(
+                            value =>
+                                value !==
+                                level
+                        );
+
+                }
+
+
+                renderLocations();
+
+            }
+        );
+
+    }
+);
+
+
+/* =========================================
+   ACCESSIBILITY FILTERS
+========================================= */
+
+const accessibilityButtons =
+    document.querySelectorAll(
+        ".accessibility-filter"
+    );
+
+
+accessibilityButtons.forEach(
+    button => {
+
+        button.addEventListener(
+            "click",
+            () => {
+
+                const level =
+                    Number(
+                        button.dataset.level
+                    );
+
+
+                button.classList.toggle(
+                    "active"
+                );
+
+
+                if (
+                    button.classList.contains(
+                        "active"
+                    )
+                ) {
+
+                    if (
+                        !state.filters
+                            .accessibility
+                            .includes(level)
+                    ) {
+
+                        state.filters
+                            .accessibility
+                            .push(level);
+
+                    }
+
+                } else {
+
+                    state.filters.accessibility =
+                        state.filters
+                            .accessibility
+                            .filter(
+                                value =>
+                                    value !==
+                                    level
+                            );
+
+                }
+
+
+                renderLocations();
+
+            }
+        );
+
+    }
+);
+
+
+/* =========================================
+   CATEGORY FILTER
+========================================= */
+
+if (categoryFilter) {
+
+    categoryFilter.addEventListener(
+        "change",
+        () => {
+
+            state.filters.category =
+                categoryFilter.value;
+
+
+            renderLocations();
+
+        }
+    );
+
+}
 
 
 /* =========================================
    SEARCH
 ========================================= */
 
-searchInput.addEventListener(
-    "input",
-    () => {
+if (searchInput) {
 
-        state.filters.search =
-            searchInput.value;
+    searchInput.addEventListener(
+        "input",
+        () => {
 
-        renderLocations();
+            state.filters.search =
+                searchInput.value
+                    .trim()
+                    .toLowerCase();
 
-    }
-);
+
+            renderLocations();
+
+        }
+    );
+
+}
 
 
 /* =========================================
    SORT
 ========================================= */
 
-sortFilter.addEventListener(
-    "change",
-    () => {
+if (sortFilter) {
 
-        state.filters.sort =
-            sortFilter.value;
+    sortFilter.addEventListener(
+        "change",
+        () => {
 
-        renderLocationDirectory();
+            state.filters.sort =
+                sortFilter.value;
 
-    }
-);
+
+            renderLocationDirectory();
+
+        }
+    );
+
+}
 
 
 /* =========================================
-   FILTER RESET
+   RESET FILTERS
 ========================================= */
 
 function clearFilters() {
 
-    state.filters.danger = [];
+    state.filters.danger =
+        [];
 
     state.filters.accessibility =
         [];
@@ -2460,9 +2539,40 @@ function clearFilters() {
         "newest";
 
 
+    dangerButtons.forEach(
+        button => {
+
+            button.classList.remove(
+                "active"
+            );
+
+        }
+    );
+
+
+    accessibilityButtons.forEach(
+        button => {
+
+            button.classList.remove(
+                "active"
+            );
+
+        }
+    );
+
+
+    if (categoryFilter) {
+
+        categoryFilter.value =
+            "all";
+
+    }
+
+
     if (searchInput) {
 
-        searchInput.value = "";
+        searchInput.value =
+            "";
 
     }
 
@@ -2475,203 +2585,14 @@ function clearFilters() {
     }
 
 
-    document
-        .querySelectorAll(
-            ".filter-option.active"
-        )
-        .forEach(
-            option => {
-
-                option.classList.remove(
-                    "active"
-                );
-
-            }
-        );
-
-
     renderLocations();
 
 }
 
 
-/* =========================================
-   FILTER BUTTONS
-========================================= */
+if (resetFilters) {
 
-document
-    .querySelectorAll(
-        ".filter-option"
-    )
-    .forEach(
-        option => {
-
-            option.addEventListener(
-                "click",
-                () => {
-
-                    const type =
-                        option.dataset.filter;
-
-                    const value =
-                        option.dataset.value;
-
-
-                    if (
-                        type ===
-                        "danger"
-                    ) {
-
-                        const numericValue =
-                            Number(
-                                value
-                            );
-
-
-                        const index =
-                            state.filters
-                                .danger
-                                .indexOf(
-                                    numericValue
-                                );
-
-
-                        if (
-                            index === -1
-                        ) {
-
-                            state.filters
-                                .danger
-                                .push(
-                                    numericValue
-                                );
-
-                            option.classList.add(
-                                "active"
-                            );
-
-                        } else {
-
-                            state.filters
-                                .danger
-                                .splice(
-                                    index,
-                                    1
-                                );
-
-                            option.classList.remove(
-                                "active"
-                            );
-
-                        }
-
-                    }
-
-
-                    if (
-                        type ===
-                        "accessibility"
-                    ) {
-
-                        const numericValue =
-                            Number(
-                                value
-                            );
-
-
-                        const index =
-                            state.filters
-                                .accessibility
-                                .indexOf(
-                                    numericValue
-                                );
-
-
-                        if (
-                            index === -1
-                        ) {
-
-                            state.filters
-                                .accessibility
-                                .push(
-                                    numericValue
-                                );
-
-                            option.classList.add(
-                                "active"
-                            );
-
-                        } else {
-
-                            state.filters
-                                .accessibility
-                                .splice(
-                                    index,
-                                    1
-                                );
-
-                            option.classList.remove(
-                                "active"
-                            );
-
-                        }
-
-                    }
-
-
-                    if (
-                        type ===
-                        "category"
-                    ) {
-
-                        document
-                            .querySelectorAll(
-                                '.filter-option[data-filter="category"]'
-                            )
-                            .forEach(
-                                item => {
-
-                                    item.classList.remove(
-                                        "active"
-                                    );
-
-                                }
-                            );
-
-
-                        state.filters.category =
-                            value;
-
-
-                        option.classList.add(
-                            "active"
-                        );
-
-                    }
-
-
-                    renderLocations();
-
-                }
-            );
-
-        }
-    );
-
-
-/* =========================================
-   RESET FILTERS BUTTON
-========================================= */
-
-const resetFiltersBtn =
-    document.querySelector(
-        ".section-title button"
-    );
-
-
-if (resetFiltersBtn) {
-
-    resetFiltersBtn.addEventListener(
+    resetFilters.addEventListener(
         "click",
         clearFilters
     );
@@ -2680,20 +2601,152 @@ if (resetFiltersBtn) {
 
 
 /* =========================================
-   MOBILE NAVIGATION
+   USER LOCATION
 ========================================= */
 
-const mobileMenuBtn =
-    document.getElementById(
-        "mobileMenuBtn"
-    );
+locateBtn.addEventListener(
+    "click",
+    () => {
+
+        map.locate({
+
+            setView:
+                true,
+
+            maxZoom:
+                14
+
+        });
+
+    }
+);
 
 
-const mobileSidebarBackdrop =
-    document.getElementById(
-        "mobileSidebarBackdrop"
-    );
+map.on(
+    "locationfound",
+    event => {
 
+        L.circle(
+            event.latlng,
+            {
+                radius:
+                    event.accuracy,
+
+                color:
+                    "#ffffff",
+
+                weight:
+                    1,
+
+                fillOpacity:
+                    0.05
+            }
+        ).addTo(map);
+
+
+        L.circleMarker(
+            event.latlng,
+            {
+                radius:
+                    6,
+
+                color:
+                    "#ffffff",
+
+                weight:
+                    2,
+
+                fillColor:
+                    "#6fa37c",
+
+                fillOpacity:
+                    1
+            }
+        )
+            .addTo(map)
+            .bindPopup(
+                "Your approximate location"
+            );
+
+    }
+);
+
+
+map.on(
+    "locationerror",
+    () => {
+
+        alert(
+            "Unable to determine your location."
+        );
+
+    }
+);
+
+
+/* =========================================
+   SIDEBAR DESKTOP
+========================================= */
+
+sidebarToggle.addEventListener(
+    "click",
+    () => {
+
+        if (
+            isMobileLayout()
+        ) {
+
+            closeMobileSidebar();
+
+            return;
+
+        }
+
+
+        sidebar.classList.toggle(
+            "collapsed"
+        );
+
+
+        if (
+            sidebar.classList.contains(
+                "collapsed"
+            )
+        ) {
+
+            sidebarToggle.textContent =
+                "›";
+
+            sidebarToggle.title =
+                "Open sidebar";
+
+        } else {
+
+            sidebarToggle.textContent =
+                "‹";
+
+            sidebarToggle.title =
+                "Collapse sidebar";
+
+        }
+
+
+        setTimeout(
+            () => {
+
+                map.invalidateSize();
+
+            },
+            250
+        );
+
+    }
+);
+
+
+/* =========================================
+   MOBILE LAYOUT
+========================================= */
 
 function isMobileLayout() {
 
@@ -2706,7 +2759,9 @@ function isMobileLayout() {
 
 function openMobileSidebar() {
 
-    if (!isMobileLayout()) {
+    if (
+        !isMobileLayout()
+    ) {
 
         return;
 
@@ -2726,11 +2781,10 @@ function openMobileSidebar() {
             "visible"
         );
 
-        mobileSidebarBackdrop
-            .setAttribute(
-                "aria-hidden",
-                "false"
-            );
+        mobileSidebarBackdrop.setAttribute(
+            "aria-hidden",
+            "false"
+        );
 
     }
 
@@ -2765,6 +2819,13 @@ function openMobileSidebar() {
 
 function closeMobileSidebar() {
 
+    if (!sidebar) {
+
+        return;
+
+    }
+
+
     sidebar.classList.remove(
         "mobile-open"
     );
@@ -2778,11 +2839,10 @@ function closeMobileSidebar() {
             "visible"
         );
 
-        mobileSidebarBackdrop
-            .setAttribute(
-                "aria-hidden",
-                "true"
-            );
+        mobileSidebarBackdrop.setAttribute(
+            "aria-hidden",
+            "true"
+        );
 
     }
 
@@ -2815,22 +2875,11 @@ function closeMobileSidebar() {
 }
 
 
-function closeMobileSidebarSafe() {
-
-    if (
-        isMobileLayout()
-    ) {
-
-        closeMobileSidebar();
-
-    }
-
-}
-
-
 function toggleMobileSidebar() {
 
-    if (!isMobileLayout()) {
+    if (
+        !isMobileLayout()
+    ) {
 
         return;
 
@@ -2875,126 +2924,6 @@ if (mobileSidebarBackdrop) {
 
 
 /* =========================================
-   MOBILE SIDEBAR CLOSE
-========================================= */
-
-sidebarToggle.addEventListener(
-    "click",
-    () => {
-
-        if (
-            isMobileLayout()
-        ) {
-
-            closeMobileSidebar();
-
-        }
-
-    }
-);
-
-
-/* =========================================
-   MOBILE CARD / DETAILS HANDLING
-========================================= */
-
-const originalFocusLocation =
-    focusLocation;
-
-
-const originalOpenDetails =
-    openDetails;
-
-
-/*
- * Keep mobile drawer closed when
- * a location is selected.
- */
-
-window.focusLocation =
-    function(locationId) {
-
-        closeMobileSidebar();
-
-        originalFocusLocation(
-            locationId
-        );
-
-    };
-
-
-window.openDetails =
-    function(locationId) {
-
-        closeMobileSidebar();
-
-        originalOpenDetails(
-            locationId
-        );
-
-    };
-
-
-/* =========================================
-   ESCAPE KEY
-========================================= */
-
-document.addEventListener(
-    "keydown",
-    event => {
-
-        if (
-            event.key !==
-            "Escape"
-        ) {
-
-            return;
-
-        }
-
-
-        if (
-            locationModal.classList.contains(
-                "visible"
-            )
-        ) {
-
-            closeLocationModal();
-
-            return;
-
-        }
-
-
-        if (
-            detailsPanel.classList.contains(
-                "visible"
-            )
-        ) {
-
-            closeDetailsPanel();
-
-            return;
-
-        }
-
-
-        if (
-            isMobileLayout() &&
-            sidebar.classList.contains(
-                "mobile-open"
-            )
-        ) {
-
-            closeMobileSidebar();
-
-        }
-
-    }
-);
-
-
-/* =========================================
    WINDOW RESIZE
 ========================================= */
 
@@ -3025,25 +2954,7 @@ window.addEventListener(
 
 
 /* =========================================
-   INITIALIZATION
-========================================= */
-
-loadLocations();
-
-renderLocations();
-
-setTimeout(
-    () => {
-
-        map.invalidateSize();
-
-    },
-    100
-);
-
-
-/* =========================================
-   MOBILE SAFE AREA
+   ORIENTATION CHANGE
 ========================================= */
 
 window.addEventListener(
@@ -3060,4 +2971,134 @@ window.addEventListener(
         );
 
     }
+);
+
+
+/* =========================================
+   ESCAPE KEY
+========================================= */
+
+document.addEventListener(
+    "keydown",
+    event => {
+
+        if (
+            event.key !==
+            "Escape"
+        ) {
+
+            return;
+
+        }
+
+
+        if (
+            modal &&
+            modal.classList.contains(
+                "visible"
+            )
+        ) {
+
+            closeLocationModal();
+
+            return;
+
+        }
+
+
+        if (
+            detailsPanel &&
+            detailsPanel.classList.contains(
+                "visible"
+            )
+        ) {
+
+            closeDetailsPanel();
+
+            return;
+
+        }
+
+
+        if (
+            isMobileLayout() &&
+            sidebar.classList.contains(
+                "mobile-open"
+            )
+        ) {
+
+            closeMobileSidebar();
+
+        }
+
+    }
+);
+
+
+/* =========================================
+   MAP COORDINATES
+========================================= */
+
+map.on(
+    "mousemove",
+    event => {
+
+        if (!coordinates) {
+
+            return;
+
+        }
+
+
+        coordinates.textContent =
+            `Lat: ${event.latlng.lat.toFixed(5)} | ` +
+            `Lng: ${event.latlng.lng.toFixed(5)}`;
+
+    }
+);
+
+
+map.on(
+    "mouseout",
+    () => {
+
+        if (!coordinates) {
+
+            return;
+
+        }
+
+
+        coordinates.textContent =
+            "Lat: -- | Lng: --";
+
+    }
+);
+
+
+/* =========================================
+   INITIALIZE
+========================================= */
+
+loadLocations();
+
+renderLocations();
+
+
+setTimeout(
+    () => {
+
+        map.invalidateSize();
+
+    },
+    100
+);
+
+
+console.log(
+    "Waypoint initialized."
+);
+
+console.log(
+    `${state.locations.length} locations loaded.`
 );
