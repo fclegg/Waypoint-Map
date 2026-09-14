@@ -2579,3 +2579,64 @@ select {
     }
 
 }
+
+
+/* =========================================
+   PHASE 7 — BASEMAP SWITCHER
+========================================= */
+
+.leaflet-control-layers {
+    border: 1px solid var(--border) !important;
+    border-radius: 9px !important;
+    background: rgba(16, 18, 18, 0.96) !important;
+    color: var(--text-secondary) !important;
+    box-shadow: 0 4px 18px rgba(0, 0, 0, 0.35) !important;
+    overflow: hidden;
+}
+
+.leaflet-control-layers-toggle {
+    width: 42px !important;
+    height: 42px !important;
+    background-color: var(--panel) !important;
+    background-image: none !important;
+    position: relative;
+}
+
+.leaflet-control-layers-toggle::before {
+    content: "▧";
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text);
+    font-size: 18px;
+}
+
+.leaflet-control-layers-expanded {
+    padding: 10px 12px !important;
+    min-width: 145px;
+    line-height: 1.8;
+    font-size: 12px;
+}
+
+.leaflet-control-layers label {
+    color: var(--text-secondary);
+    cursor: pointer;
+}
+
+.leaflet-control-layers label:hover {
+    color: var(--text);
+}
+
+.leaflet-control-layers-selector {
+    accent-color: var(--accent);
+    margin-right: 7px;
+}
+
+@media (max-width: 700px) {
+    .leaflet-control-layers {
+        margin-top: 10px !important;
+        margin-right: 10px !important;
+    }
+}
