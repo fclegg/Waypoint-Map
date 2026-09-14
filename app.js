@@ -476,7 +476,8 @@ function cloudToLocal(row) {
             Number(row.longitude),
 
         createdAt:
-            row.created_at || new Date().toISOString(),
+            row.created_at ||
+            new Date().toISOString(),
 
         updatedAt:
             row.updated_at || null
@@ -516,11 +517,54 @@ function localToCloud(location) {
             location.createdAt ||
             new Date().toISOString(),
 
+        /*
+         * IMPORTANT:
+         * The Supabase table requires
+         * updated_at to NOT be null.
+         */
         updated_at:
             location.updatedAt ||
-            null
+            new Date().toISOString()
 
     };
+
+}
+
+
+/* =========================================
+   SUPABASE ERROR HANDLING
+========================================= */
+
+function logSupabaseError(
+    action,
+    error
+) {
+
+    console.error(
+        `Waypoint Supabase ${action} error:`,
+        error
+    );
+
+    if (error) {
+
+        console.error(
+            "Supabase error details:",
+            {
+                message:
+                    error.message,
+
+                details:
+                    error.details,
+
+                hint:
+                    error.hint,
+
+                code:
+                    error.code
+            }
+        );
+
+    }
 
 }
 
@@ -545,6 +589,7 @@ async function loadCloudLocations() {
 
         state.loadingLocations = true;
 
+
         const {
             data,
             error
@@ -561,7 +606,14 @@ async function loadCloudLocations() {
 
 
         if (error) {
+
+            logSupabaseError(
+                "load",
+                error
+            );
+
             throw error;
+
         }
 
 
@@ -571,9 +623,12 @@ async function loadCloudLocations() {
             );
 
 
-        state.cloudConnected = true;
+        state.cloudConnected =
+            true;
+
 
         saveLocalCache();
+
 
         return true;
 
@@ -584,13 +639,15 @@ async function loadCloudLocations() {
             error
         );
 
-        state.cloudConnected = false;
+        state.cloudConnected =
+            false;
 
         return false;
 
     } finally {
 
-        state.loadingLocations = false;
+        state.loadingLocations =
+            false;
 
     }
 
@@ -601,19 +658,24 @@ async function loadCloudLocations() {
    MIGRATE LOCAL LOCATIONS
 ========================================= */
 
-async function migrateLocalLocations() {
+async function migrateLocalLocations(
+    localLocations
+) {
 
     if (!supabaseClient) {
         return;
     }
 
 
-    const localLocations =
-        loadLocalCache();
+    if (
+        !Array.isArray(
+            localLocations
+        ) ||
+        !localLocations.length
+    ) {
 
-
-    if (!localLocations.length) {
         return;
+
     }
 
 
@@ -629,7 +691,14 @@ async function migrateLocalLocations() {
 
 
         if (loadError) {
+
+            logSupabaseError(
+                "migration lookup",
+                loadError
+            );
+
             throw loadError;
+
         }
 
 
@@ -637,7 +706,8 @@ async function migrateLocalLocations() {
             new Set(
                 (cloudLocations || [])
                     .map(
-                        item => item.id
+                        item =>
+                            item.id
                     )
             );
 
@@ -652,12 +722,42 @@ async function migrateLocalLocations() {
                         )
                 )
                 .map(
-                    localToCloud
+                    location => {
+
+                        /*
+                         * Old local locations should
+                         * always have a valid UUID.
+                         *
+                         * If one doesn't, create a
+                         * new UUID so migration can
+                         * still succeed.
+                         */
+
+                        if (
+                            !isValidUUID(
+                                location.id
+                            )
+                        ) {
+
+                            location.id =
+                                crypto.randomUUID();
+
+                        }
+
+                        return localToCloud(
+                            location
+                        );
+
+                    }
                 );
 
 
-        if (!locationsToUpload.length) {
+        if (
+            !locationsToUpload.length
+        ) {
+
             return;
+
         }
 
 
@@ -677,7 +777,14 @@ async function migrateLocalLocations() {
 
 
         if (error) {
+
+            logSupabaseError(
+                "migration",
+                error
+            );
+
             throw error;
+
         }
 
 
@@ -698,39 +805,125 @@ async function migrateLocalLocations() {
 
 
 /* =========================================
+   UUID VALIDATION
+========================================= */
+
+function isValidUUID(value) {
+
+    if (
+        typeof value !==
+        "string"
+    ) {
+
+        return false;
+
+    }
+
+
+    return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+        .test(value);
+
+}
+
+
+/* =========================================
    INSERT LOCATION
 ========================================= */
 
-async function insertCloudLocation(location) {
+async function insertCloudLocation(
+    location
+) {
 
     if (!supabaseClient) {
+
         return false;
+
     }
 
 
     try {
 
+        const cloudLocation =
+            localToCloud(
+                location
+            );
+
+
+        console.log(
+            "Uploading Waypoint location:",
+            cloudLocation
+        );
+
+
         const {
+            data,
             error
         } =
             await supabaseClient
                 .from("locations")
                 .insert(
-                    localToCloud(location)
-                );
+                    cloudLocation
+                )
+                .select()
+                .single();
 
 
         if (error) {
-            throw error;
+
+            logSupabaseError(
+                "insert",
+                error
+            );
+
+            return false;
+
         }
+
+
+        /*
+         * Replace the local object with
+         * the authoritative cloud object.
+         */
+
+        if (data) {
+
+            const cloudLocationLocal =
+                cloudToLocal(
+                    data
+                );
+
+
+            const index =
+                state.locations.findIndex(
+                    item =>
+                        item.id ===
+                        location.id
+                );
+
+
+            if (index !== -1) {
+
+                state.locations[index] =
+                    cloudLocationLocal;
+
+            }
+
+        }
+
+
+        state.cloudConnected =
+            true;
+
+
+        saveLocalCache();
 
 
         return true;
 
     } catch (error) {
 
-        console.error(
-            "Unable to add location to Supabase:",
+        logSupabaseError(
+            "insert",
             error
         );
 
@@ -745,40 +938,93 @@ async function insertCloudLocation(location) {
    UPDATE LOCATION
 ========================================= */
 
-async function updateCloudLocation(location) {
+async function updateCloudLocation(
+    location
+) {
 
     if (!supabaseClient) {
+
         return false;
+
     }
 
 
     try {
 
+        const cloudLocation =
+            localToCloud(
+                location
+            );
+
+
         const {
+            data,
             error
         } =
             await supabaseClient
                 .from("locations")
                 .update(
-                    localToCloud(location)
+                    cloudLocation
                 )
                 .eq(
                     "id",
                     location.id
-                );
+                )
+                .select()
+                .single();
 
 
         if (error) {
-            throw error;
+
+            logSupabaseError(
+                "update",
+                error
+            );
+
+            return false;
+
         }
+
+
+        if (data) {
+
+            const updated =
+                cloudToLocal(
+                    data
+                );
+
+
+            const index =
+                state.locations.findIndex(
+                    item =>
+                        item.id ===
+                        location.id
+                );
+
+
+            if (index !== -1) {
+
+                state.locations[index] =
+                    updated;
+
+            }
+
+        }
+
+
+        state.cloudConnected =
+            true;
+
+
+        saveLocalCache();
 
 
         return true;
 
     } catch (error) {
 
-        console.error(
-            "Unable to update location in Supabase:",
+        logSupabaseError(
+            "update",
             error
         );
 
@@ -793,10 +1039,14 @@ async function updateCloudLocation(location) {
    DELETE LOCATION
 ========================================= */
 
-async function deleteCloudLocation(locationId) {
+async function deleteCloudLocation(
+    locationId
+) {
 
     if (!supabaseClient) {
+
         return false;
+
     }
 
 
@@ -815,16 +1065,27 @@ async function deleteCloudLocation(locationId) {
 
 
         if (error) {
-            throw error;
+
+            logSupabaseError(
+                "delete",
+                error
+            );
+
+            return false;
+
         }
+
+
+        state.cloudConnected =
+            true;
 
 
         return true;
 
     } catch (error) {
 
-        console.error(
-            "Unable to delete location from Supabase:",
+        logSupabaseError(
+            "delete",
             error
         );
 
@@ -842,7 +1103,9 @@ async function deleteCloudLocation(locationId) {
 function subscribeToLocationChanges() {
 
     if (!supabaseClient) {
+
         return;
+
     }
 
 
@@ -866,6 +1129,10 @@ function subscribeToLocationChanges() {
                         payload.eventType
                     );
 
+
+                    /* =========================
+                       INSERT
+                    ========================= */
 
                     if (
                         payload.eventType ===
@@ -897,6 +1164,10 @@ function subscribeToLocationChanges() {
                     }
 
 
+                    /* =========================
+                       UPDATE
+                    ========================= */
+
                     if (
                         payload.eventType ===
                         "UPDATE"
@@ -916,7 +1187,9 @@ function subscribeToLocationChanges() {
                             );
 
 
-                        if (index !== -1) {
+                        if (
+                            index !== -1
+                        ) {
 
                             state.locations[index] =
                                 incoming;
@@ -931,6 +1204,10 @@ function subscribeToLocationChanges() {
 
                     }
 
+
+                    /* =========================
+                       DELETE
+                    ========================= */
 
                     if (
                         payload.eventType ===
@@ -992,17 +1269,28 @@ function subscribeToLocationChanges() {
 
 async function initializeDatabase() {
 
+    /*
+     * IMPORTANT:
+     *
+     * Capture the original local cache
+     * BEFORE loading Supabase.
+     *
+     * Otherwise loadCloudLocations()
+     * would overwrite the local cache
+     * before migration could see it.
+     */
+
     const cachedLocations =
         loadLocalCache();
 
 
     /*
      * Show cached locations immediately.
-     * This makes Waypoint usable while
-     * the cloud database loads.
      */
 
-    if (cachedLocations.length) {
+    if (
+        cachedLocations.length
+    ) {
 
         state.locations =
             cachedLocations;
@@ -1011,6 +1299,11 @@ async function initializeDatabase() {
 
     }
 
+
+    /*
+     * If Supabase isn't available,
+     * remain in local mode.
+     */
 
     if (!supabaseClient) {
 
@@ -1024,8 +1317,7 @@ async function initializeDatabase() {
 
 
     /*
-     * First retrieve the current
-     * cloud database.
+     * Load the shared cloud database.
      */
 
     const cloudLoaded =
@@ -1033,24 +1325,33 @@ async function initializeDatabase() {
 
 
     /*
-     * If the database is empty but
-     * this browser has old locations,
-     * migrate them.
+     * If cloud loaded successfully,
+     * migrate locations that existed
+     * locally before cloud setup.
      */
 
     if (cloudLoaded) {
 
-        await migrateLocalLocations();
+        await migrateLocalLocations(
+            cachedLocations
+        );
+
 
         /*
-         * Reload after migration so the
-         * UI contains the authoritative
-         * cloud records.
+         * Reload so the UI contains the
+         * authoritative cloud records.
          */
 
         await loadCloudLocations();
 
-    } else if (cachedLocations.length) {
+    } else if (
+        cachedLocations.length
+    ) {
+
+        /*
+         * If cloud failed, restore
+         * the cached local locations.
+         */
 
         state.locations =
             cachedLocations;
@@ -1059,6 +1360,7 @@ async function initializeDatabase() {
 
 
     renderLocations();
+
 
     subscribeToLocationChanges();
 
@@ -1069,14 +1371,25 @@ async function initializeDatabase() {
    FILTER LOGIC
 ========================================= */
 
-function passesFilters(location) {
+function passesFilters(
+    location
+) {
 
     const danger =
-        Number(location.danger);
+        Number(
+            location.danger
+        );
+
 
     const accessibility =
-        Number(location.accessibility);
+        Number(
+            location.accessibility
+        );
 
+
+    /*
+     * Danger
+     */
 
     if (
         state.filters.danger.length > 0 &&
@@ -1090,6 +1403,10 @@ function passesFilters(location) {
     }
 
 
+    /*
+     * Accessibility
+     */
+
     if (
         state.filters.accessibility.length > 0 &&
         !state.filters.accessibility.includes(
@@ -1102,8 +1419,13 @@ function passesFilters(location) {
     }
 
 
+    /*
+     * Category
+     */
+
     if (
-        state.filters.category !== "all" &&
+        state.filters.category !==
+            "all" &&
         location.category !==
             state.filters.category
     ) {
@@ -1113,7 +1435,13 @@ function passesFilters(location) {
     }
 
 
-    if (state.filters.search) {
+    /*
+     * Search
+     */
+
+    if (
+        state.filters.search
+    ) {
 
         const searchableText = [
 
@@ -1154,13 +1482,17 @@ function passesFilters(location) {
    SORTING
 ========================================= */
 
-function sortLocations(locations) {
+function sortLocations(
+    locations
+) {
 
     const sorted =
         [...locations];
 
 
-    switch (state.filters.sort) {
+    switch (
+        state.filters.sort
+    ) {
 
         case "oldest":
 
@@ -1213,8 +1545,12 @@ function sortLocations(locations) {
 
             sorted.sort(
                 (a, b) =>
-                    Number(b.danger) -
-                    Number(a.danger)
+                    Number(
+                        b.danger
+                    ) -
+                    Number(
+                        a.danger
+                    )
             );
 
             break;
@@ -1224,8 +1560,12 @@ function sortLocations(locations) {
 
             sorted.sort(
                 (a, b) =>
-                    Number(a.danger) -
-                    Number(b.danger)
+                    Number(
+                        a.danger
+                    ) -
+                    Number(
+                        b.danger
+                    )
             );
 
             break;
@@ -1235,8 +1575,12 @@ function sortLocations(locations) {
 
             sorted.sort(
                 (a, b) =>
-                    Number(b.accessibility) -
-                    Number(a.accessibility)
+                    Number(
+                        b.accessibility
+                    ) -
+                    Number(
+                        a.accessibility
+                    )
             );
 
             break;
@@ -1246,8 +1590,12 @@ function sortLocations(locations) {
 
             sorted.sort(
                 (a, b) =>
-                    Number(a.accessibility) -
-                    Number(b.accessibility)
+                    Number(
+                        a.accessibility
+                    ) -
+                    Number(
+                        b.accessibility
+                    )
             );
 
             break;
@@ -1294,7 +1642,9 @@ function updateLocationCount(
         state.locations.length;
 
 
-    if (total === 0) {
+    if (
+        total === 0
+    ) {
 
         locationCount.textContent =
             "0 locations mapped";
@@ -1304,7 +1654,10 @@ function updateLocationCount(
     }
 
 
-    if (visibleCount === total) {
+    if (
+        visibleCount ===
+        total
+    ) {
 
         locationCount.textContent =
             total === 1
@@ -1348,6 +1701,7 @@ function highlightMarker(
 
             const element =
                 marker.getElement();
+
 
             if (!element) {
                 return;
@@ -1396,6 +1750,7 @@ function clearMarkerHighlights() {
             const element =
                 marker.getElement();
 
+
             if (element) {
 
                 const markerElement =
@@ -1404,7 +1759,9 @@ function clearMarkerHighlights() {
                     );
 
 
-                if (markerElement) {
+                if (
+                    markerElement
+                ) {
 
                     markerElement.classList.remove(
                         "selected-marker"
@@ -1415,7 +1772,9 @@ function clearMarkerHighlights() {
             }
 
 
-            marker.setZIndexOffset(0);
+            marker.setZIndexOffset(
+                0
+            );
 
         }
     );
@@ -1445,7 +1804,9 @@ function highlightDirectoryCard(
 
                 const selected =
                     card.dataset.locationId ===
-                    String(locationId);
+                    String(
+                        locationId
+                    );
 
 
                 card.classList.toggle(
@@ -1460,12 +1821,16 @@ function highlightDirectoryCard(
     const selectedCard =
         locationList.querySelector(
             `[data-location-id="${CSS.escape(
-                String(locationId)
+                String(
+                    locationId
+                )
             )}"]`
         );
 
 
-    if (selectedCard) {
+    if (
+        selectedCard
+    ) {
 
         selectedCard.scrollIntoView(
             {
@@ -1483,10 +1848,14 @@ function highlightDirectoryCard(
    CREATE MARKER
 ========================================= */
 
-function createMarker(location) {
+function createMarker(
+    location
+) {
 
     const danger =
-        Number(location.danger) || 1;
+        Number(
+            location.danger
+        ) || 1;
 
 
     const markerIcon =
@@ -1503,11 +1872,20 @@ function createMarker(location) {
                 ></div>
             `,
 
-            iconSize: [26, 26],
+            iconSize: [
+                26,
+                26
+            ],
 
-            iconAnchor: [13, 13],
+            iconAnchor: [
+                13,
+                13
+            ],
 
-            popupAnchor: [0, -13]
+            popupAnchor: [
+                0,
+                -13
+            ]
 
         });
 
@@ -1515,11 +1893,16 @@ function createMarker(location) {
     const marker =
         L.marker(
             [
-                Number(location.latitude),
-                Number(location.longitude)
+                Number(
+                    location.latitude
+                ),
+                Number(
+                    location.longitude
+                )
             ],
             {
-                icon: markerIcon
+                icon:
+                    markerIcon
             }
         );
 
@@ -1540,9 +1923,14 @@ function createMarker(location) {
     );
 
 
-    marker.addTo(map);
+    marker.addTo(
+        map
+    );
 
-    state.markers.push(marker);
+
+    state.markers.push(
+        marker
+    );
 
 
     return marker;
@@ -1568,10 +1956,14 @@ function renderLocationDirectory() {
 
 
     const visibleLocations =
-        sortLocations(filtered);
+        sortLocations(
+            filtered
+        );
 
 
-    if (directoryCount) {
+    if (
+        directoryCount
+    ) {
 
         directoryCount.textContent =
             visibleLocations.length;
@@ -1579,13 +1971,19 @@ function renderLocationDirectory() {
     }
 
 
-    locationList.innerHTML = "";
+    locationList.innerHTML =
+        "";
 
 
-    if (visibleLocations.length === 0) {
+    if (
+        visibleLocations.length ===
+        0
+    ) {
 
         const emptyState =
-            document.createElement("div");
+            document.createElement(
+                "div"
+            );
 
 
         emptyState.className =
@@ -1593,7 +1991,8 @@ function renderLocationDirectory() {
 
 
         emptyState.textContent =
-            state.locations.length === 0
+            state.locations.length ===
+            0
                 ? "No locations have been added yet."
                 : "No locations match your filters.";
 
@@ -1612,7 +2011,9 @@ function renderLocationDirectory() {
         location => {
 
             const card =
-                document.createElement("div");
+                document.createElement(
+                    "div"
+                );
 
 
             card.className =
@@ -1655,7 +2056,9 @@ function renderLocationDirectory() {
 
 
             const danger =
-                Number(location.danger) || 1;
+                Number(
+                    location.danger
+                ) || 1;
 
 
             const accessibility =
@@ -1752,11 +2155,14 @@ function renderLocationDirectory() {
                 event => {
 
                     if (
-                        event.key === "Enter" ||
-                        event.key === " "
+                        event.key ===
+                            "Enter" ||
+                        event.key ===
+                            " "
                     ) {
 
                         event.preventDefault();
+
 
                         focusLocation(
                             location.id
@@ -1794,11 +2200,16 @@ function updateNoResults(
 
     if (
         visibleCount > 0 ||
-        state.locations.length === 0
+        state.locations.length ===
+            0
     ) {
 
-        if (noResults) {
+        if (
+            noResults
+        ) {
+
             noResults.remove();
+
         }
 
         return;
@@ -1806,10 +2217,14 @@ function updateNoResults(
     }
 
 
-    if (!noResults) {
+    if (
+        !noResults
+    ) {
 
         noResults =
-            document.createElement("div");
+            document.createElement(
+                "div"
+            );
 
 
         noResults.className =
@@ -1820,11 +2235,21 @@ function updateNoResults(
             "No locations match your filters.";
 
 
-        document
-            .querySelector(".map-container")
-            .appendChild(
+        const mapContainer =
+            document.querySelector(
+                ".map-container"
+            );
+
+
+        if (
+            mapContainer
+        ) {
+
+            mapContainer.appendChild(
                 noResults
             );
+
+        }
 
     }
 
@@ -1840,7 +2265,11 @@ function renderLocations() {
     state.markers.forEach(
         marker => {
 
-            if (map.hasLayer(marker)) {
+            if (
+                map.hasLayer(
+                    marker
+                )
+            ) {
 
                 map.removeLayer(
                     marker
@@ -1879,7 +2308,9 @@ function renderLocations() {
     renderLocationDirectory();
 
 
-    if (state.selectedLocationId) {
+    if (
+        state.selectedLocationId
+    ) {
 
         highlightMarker(
             state.selectedLocationId
@@ -1916,7 +2347,17 @@ function focusLocation(
     }
 
 
-    if (!passesFilters(location)) {
+    /*
+     * If filters hide this location,
+     * clear the filters so it becomes
+     * visible again.
+     */
+
+    if (
+        !passesFilters(
+            location
+        )
+    ) {
 
         clearFilters();
 
@@ -1928,15 +2369,24 @@ function focusLocation(
 
 
     const latitude =
-        Number(location.latitude);
+        Number(
+            location.latitude
+        );
+
 
     const longitude =
-        Number(location.longitude);
+        Number(
+            location.longitude
+        );
 
 
     if (
-        !Number.isNaN(latitude) &&
-        !Number.isNaN(longitude)
+        !Number.isNaN(
+            latitude
+        ) &&
+        !Number.isNaN(
+            longitude
+        )
     ) {
 
         map.flyTo(
@@ -1949,7 +2399,8 @@ function focusLocation(
                 13
             ),
             {
-                duration: 0.8
+                duration:
+                    0.8
             }
         );
 
@@ -2020,7 +2471,9 @@ function openDetails(
 
 
     const danger =
-        Number(location.danger) || 1;
+        Number(
+            location.danger
+        ) || 1;
 
 
     const accessibility =
@@ -2114,7 +2567,9 @@ function closeDetailsPanel() {
     clearMarkerHighlights();
 
 
-    if (locationList) {
+    if (
+        locationList
+    ) {
 
         locationList
             .querySelectorAll(
@@ -2135,7 +2590,9 @@ function closeDetailsPanel() {
 }
 
 
-if (closeDetails) {
+if (
+    closeDetails
+) {
 
     closeDetails.addEventListener(
         "click",
@@ -2145,7 +2602,9 @@ if (closeDetails) {
 }
 
 
-if (closeLocationBtn) {
+if (
+    closeLocationBtn
+) {
 
     closeLocationBtn.addEventListener(
         "click",
@@ -2159,42 +2618,48 @@ if (closeLocationBtn) {
    ADD LOCATION
 ========================================= */
 
-addLocationBtn.addEventListener(
-    "click",
-    () => {
+if (
+    addLocationBtn
+) {
 
-        closeDetailsPanel();
+    addLocationBtn.addEventListener(
+        "click",
+        () => {
 
-        closeMobileSidebar();
+            closeDetailsPanel();
 
-
-        state.addingLocation =
-            true;
-
-
-        state.selectedCoordinates =
-            null;
+            closeMobileSidebar();
 
 
-        state.editingLocation =
-            false;
+            state.addingLocation =
+                true;
 
 
-        state.editingLocationId =
-            null;
+            state.selectedCoordinates =
+                null;
 
 
-        map.getContainer()
-            .classList.add(
-                "adding-location"
-            );
+            state.editingLocation =
+                false;
 
 
-        addLocationBtn.innerHTML =
-            "<span>⌖</span>Click Map";
+            state.editingLocationId =
+                null;
 
-    }
-);
+
+            map.getContainer()
+                .classList.add(
+                    "adding-location"
+                );
+
+
+            addLocationBtn.innerHTML =
+                "<span>⌖</span>Click Map";
+
+        }
+    );
+
+}
 
 
 /* =========================================
@@ -2205,8 +2670,12 @@ map.on(
     "click",
     event => {
 
-        if (!state.addingLocation) {
+        if (
+            !state.addingLocation
+        ) {
+
             return;
+
         }
 
 
@@ -2231,8 +2700,14 @@ map.on(
             );
 
 
-        addLocationBtn.innerHTML =
-            "<span>＋</span>Add Location";
+        if (
+            addLocationBtn
+        ) {
+
+            addLocationBtn.innerHTML =
+                "<span>＋</span>Add Location";
+
+        }
 
 
         state.editingLocation =
@@ -2251,11 +2726,15 @@ map.on(
 
 
         modalLatitude.textContent =
-            event.latlng.lat.toFixed(6);
+            event.latlng.lat.toFixed(
+                6
+            );
 
 
         modalLongitude.textContent =
-            event.latlng.lng.toFixed(6);
+            event.latlng.lng.toFixed(
+                6
+            );
 
 
         modal.classList.add(
@@ -2312,87 +2791,351 @@ function closeLocationModal() {
         );
 
 
-    addLocationBtn.innerHTML =
-        "<span>＋</span>Add Location";
+    if (
+        addLocationBtn
+    ) {
+
+        addLocationBtn.innerHTML =
+            "<span>＋</span>Add Location";
+
+    }
 
 }
 
 
-closeModal.addEventListener(
-    "click",
-    closeLocationModal
-);
+if (
+    closeModal
+) {
+
+    closeModal.addEventListener(
+        "click",
+        closeLocationModal
+    );
+
+}
 
 
-cancelLocation.addEventListener(
-    "click",
-    closeLocationModal
-);
+if (
+    cancelLocation
+) {
+
+    cancelLocation.addEventListener(
+        "click",
+        closeLocationModal
+    );
+
+}
 
 
-modal.addEventListener(
-    "click",
-    event => {
+if (
+    modal
+) {
 
-        if (
-            event.target ===
-            modal
-        ) {
+    modal.addEventListener(
+        "click",
+        event => {
 
-            closeLocationModal();
+            if (
+                event.target ===
+                modal
+            ) {
+
+                closeLocationModal();
+
+            }
 
         }
+    );
 
-    }
-);
+}
 
 
 /* =========================================
    SAVE LOCATION
 ========================================= */
 
-locationForm.addEventListener(
-    "submit",
-    async event => {
+if (
+    locationForm
+) {
 
-        event.preventDefault();
+    locationForm.addEventListener(
+        "submit",
+        async event => {
+
+            event.preventDefault();
 
 
-        if (!state.selectedCoordinates) {
+            if (
+                !state.selectedCoordinates
+            ) {
 
-            alert(
-                "Please select a location on the map."
+                alert(
+                    "Please select a location on the map."
+                );
+
+                return;
+
+            }
+
+
+            const name =
+                locationName.value.trim();
+
+
+            if (!name) {
+
+                locationName.focus();
+
+                return;
+
+            }
+
+
+            /* =========================
+               EDIT
+            ========================= */
+
+            if (
+                state.editingLocation
+            ) {
+
+                const location =
+                    state.locations.find(
+                        item =>
+                            item.id ===
+                            state.editingLocationId
+                    );
+
+
+                if (!location) {
+                    return;
+                }
+
+
+                location.name =
+                    name;
+
+
+                location.description =
+                    locationDescription.value.trim();
+
+
+                location.category =
+                    locationCategory.value;
+
+
+                location.danger =
+                    Number(
+                        locationDanger.value
+                    );
+
+
+                location.accessibility =
+                    Number(
+                        locationAccessibility.value
+                    );
+
+
+                location.latitude =
+                    Number(
+                        state.selectedCoordinates
+                            .latitude
+                    );
+
+
+                location.longitude =
+                    Number(
+                        state.selectedCoordinates
+                            .longitude
+                    );
+
+
+                location.updatedAt =
+                    new Date().toISOString();
+
+
+                /*
+                 * Save locally first.
+                 */
+
+                saveLocalCache();
+
+
+                /*
+                 * Update cloud.
+                 */
+
+                if (
+                    state.cloudConnected
+                ) {
+
+                    const success =
+                        await updateCloudLocation(
+                            location
+                        );
+
+
+                    if (!success) {
+
+                        alert(
+                            "The location was updated locally, but the cloud database could not be updated. Check the browser console for the Supabase error."
+                        );
+
+                    }
+
+                }
+
+
+                closeLocationModal();
+
+                renderLocations();
+
+                focusLocation(
+                    location.id
+                );
+
+
+                return;
+
+            }
+
+
+            /* =========================
+               CREATE
+            ========================= */
+
+            const newLocation = {
+
+                id:
+                    crypto.randomUUID(),
+
+                name,
+
+                description:
+                    locationDescription.value.trim(),
+
+                category:
+                    locationCategory.value,
+
+                danger:
+                    Number(
+                        locationDanger.value
+                    ),
+
+                accessibility:
+                    Number(
+                        locationAccessibility.value
+                    ),
+
+                latitude:
+                    Number(
+                        state.selectedCoordinates
+                            .latitude
+                    ),
+
+                longitude:
+                    Number(
+                        state.selectedCoordinates
+                            .longitude
+                    ),
+
+                createdAt:
+                    new Date().toISOString(),
+
+                updatedAt:
+                    new Date().toISOString()
+
+            };
+
+
+            /*
+             * Add locally immediately.
+             */
+
+            state.locations.push(
+                newLocation
             );
 
-            return;
+
+            saveLocalCache();
+
+
+            closeLocationModal();
+
+            renderLocations();
+
+
+            /*
+             * Upload to Supabase.
+             */
+
+            if (
+                state.cloudConnected
+            ) {
+
+                const success =
+                    await insertCloudLocation(
+                        newLocation
+                    );
+
+
+                if (!success) {
+
+                    alert(
+                        "The location was saved on this device, but could not be uploaded to the cloud. Check the browser console for the Supabase error."
+                    );
+
+                } else {
+
+                    /*
+                     * Re-render after Supabase
+                     * returns the authoritative row.
+                     */
+
+                    renderLocations();
+
+                }
+
+            } else {
+
+                alert(
+                    "The location was saved locally because the cloud database is currently offline."
+                );
+
+            }
+
+
+            state.selectedLocationId =
+                newLocation.id;
+
+
+            focusLocation(
+                newLocation.id
+            );
 
         }
+    );
+
+}
 
 
-        const name =
-            locationName.value.trim();
+/* =========================================
+   EDIT LOCATION
+========================================= */
 
+if (
+    editLocationBtn
+) {
 
-        if (!name) {
-
-            locationName.focus();
-
-            return;
-
-        }
-
-
-        /*
-         * EDIT
-         */
-
-        if (state.editingLocation) {
+    editLocationBtn.addEventListener(
+        "click",
+        () => {
 
             const location =
                 state.locations.find(
                     item =>
                         item.id ===
-                        state.editingLocationId
+                        state.selectedLocationId
                 );
 
 
@@ -2401,376 +3144,184 @@ locationForm.addEventListener(
             }
 
 
-            location.name =
-                name;
+            state.editingLocation =
+                true;
 
 
-            location.description =
-                locationDescription.value.trim();
+            state.editingLocationId =
+                location.id;
 
 
-            location.category =
-                locationCategory.value;
+            state.selectedCoordinates = {
+
+                latitude:
+                    Number(
+                        location.latitude
+                    ),
+
+                longitude:
+                    Number(
+                        location.longitude
+                    )
+
+            };
 
 
-            location.danger =
-                Number(
-                    locationDanger.value
+            modalTitle.textContent =
+                "Edit Location";
+
+
+            locationName.value =
+                location.name ||
+                "";
+
+
+            locationDescription.value =
+                location.description ||
+                "";
+
+
+            locationCategory.value =
+                location.category ||
+                "other";
+
+
+            locationDanger.value =
+                String(
+                    location.danger ||
+                    1
                 );
 
 
-            location.accessibility =
-                Number(
-                    locationAccessibility.value
+            locationAccessibility.value =
+                String(
+                    location.accessibility ||
+                    1
                 );
 
 
-            location.latitude =
-                Number(
-                    state.selectedCoordinates
-                        .latitude
-                );
-
-
-            location.longitude =
-                Number(
-                    state.selectedCoordinates
-                        .longitude
-                );
-
-
-            location.updatedAt =
-                new Date().toISOString();
-
-
-            /*
-             * Update local cache immediately.
-             */
-
-            saveLocalCache();
-
-
-            /*
-             * Update cloud database.
-             */
-
-            if (state.cloudConnected) {
-
-                const success =
-                    await updateCloudLocation(
-                        location
-                    );
-
-
-                if (!success) {
-
-                    alert(
-                        "The location was updated locally, but the cloud database could not be updated."
-                    );
-
-                }
-
-            }
-
-
-            closeLocationModal();
-
-            renderLocations();
-
-            focusLocation(
-                location.id
-            );
-
-
-            return;
-
-        }
-
-
-        /*
-         * CREATE
-         */
-
-        const newLocation = {
-
-            id:
-                crypto.randomUUID(),
-
-            name,
-
-            description:
-                locationDescription.value.trim(),
-
-            category:
-                locationCategory.value,
-
-            danger:
-                Number(
-                    locationDanger.value
-                ),
-
-            accessibility:
-                Number(
-                    locationAccessibility.value
-                ),
-
-            latitude:
-                Number(
-                    state.selectedCoordinates
-                        .latitude
-                ),
-
-            longitude:
-                Number(
-                    state.selectedCoordinates
-                        .longitude
-                ),
-
-            createdAt:
-                new Date().toISOString(),
-
-            updatedAt:
-                null
-
-        };
-
-
-        /*
-         * Add locally first so the
-         * interface responds immediately.
-         */
-
-        state.locations.push(
-            newLocation
-        );
-
-
-        saveLocalCache();
-
-        closeLocationModal();
-
-        renderLocations();
-
-
-        /*
-         * Save to cloud.
-         */
-
-        if (state.cloudConnected) {
-
-            const success =
-                await insertCloudLocation(
-                    newLocation
-                );
-
-
-            if (!success) {
-
-                alert(
-                    "The location was saved on this device, but could not be uploaded to the cloud."
-                );
-
-            }
-
-        }
-
-
-        state.selectedLocationId =
-            newLocation.id;
-
-
-        focusLocation(
-            newLocation.id
-        );
-
-    }
-);
-
-
-/* =========================================
-   EDIT LOCATION
-========================================= */
-
-editLocationBtn.addEventListener(
-    "click",
-    () => {
-
-        const location =
-            state.locations.find(
-                item =>
-                    item.id ===
-                    state.selectedLocationId
-            );
-
-
-        if (!location) {
-            return;
-        }
-
-
-        state.editingLocation =
-            true;
-
-
-        state.editingLocationId =
-            location.id;
-
-
-        state.selectedCoordinates = {
-
-            latitude:
+            modalLatitude.textContent =
                 Number(
                     location.latitude
-                ),
+                ).toFixed(6);
 
-            longitude:
+
+            modalLongitude.textContent =
                 Number(
                     location.longitude
-                )
-
-        };
+                ).toFixed(6);
 
 
-        modalTitle.textContent =
-            "Edit Location";
-
-
-        locationName.value =
-            location.name || "";
-
-
-        locationDescription.value =
-            location.description || "";
-
-
-        locationCategory.value =
-            location.category ||
-            "other";
-
-
-        locationDanger.value =
-            String(
-                location.danger || 1
+            modal.classList.add(
+                "visible"
             );
 
 
-        locationAccessibility.value =
-            String(
-                location.accessibility || 1
+            setTimeout(
+                () => {
+
+                    locationName.focus();
+
+                },
+                100
             );
 
+        }
+    );
 
-        modalLatitude.textContent =
-            Number(
-                location.latitude
-            ).toFixed(6);
-
-
-        modalLongitude.textContent =
-            Number(
-                location.longitude
-            ).toFixed(6);
-
-
-        modal.classList.add(
-            "visible"
-        );
-
-
-        setTimeout(
-            () => {
-
-                locationName.focus();
-
-            },
-            100
-        );
-
-    }
-);
+}
 
 
 /* =========================================
    DELETE LOCATION
 ========================================= */
 
-deleteLocationBtn.addEventListener(
-    "click",
-    async () => {
+if (
+    deleteLocationBtn
+) {
 
-        const location =
-            state.locations.find(
-                item =>
-                    item.id ===
-                    state.selectedLocationId
-            );
+    deleteLocationBtn.addEventListener(
+        "click",
+        async () => {
 
-
-        if (!location) {
-            return;
-        }
-
-
-        const confirmed =
-            window.confirm(
-                `Delete "${location.name}"? This cannot be undone.`
-            );
-
-
-        if (!confirmed) {
-            return;
-        }
-
-
-        /*
-         * Delete from cloud first.
-         */
-
-        if (state.cloudConnected) {
-
-            const success =
-                await deleteCloudLocation(
-                    location.id
+            const location =
+                state.locations.find(
+                    item =>
+                        item.id ===
+                        state.selectedLocationId
                 );
 
 
-            if (!success) {
-
-                alert(
-                    "The location could not be deleted from the cloud database."
-                );
-
+            if (!location) {
                 return;
+            }
+
+
+            const confirmed =
+                window.confirm(
+                    `Delete "${location.name}"? This cannot be undone.`
+                );
+
+
+            if (!confirmed) {
+                return;
+            }
+
+
+            /*
+             * Delete from cloud first.
+             */
+
+            if (
+                state.cloudConnected
+            ) {
+
+                const success =
+                    await deleteCloudLocation(
+                        location.id
+                    );
+
+
+                if (!success) {
+
+                    alert(
+                        "The location could not be deleted from the cloud database. Check the browser console for the Supabase error."
+                    );
+
+                    return;
+
+                }
 
             }
 
+
+            /*
+             * Delete locally.
+             */
+
+            state.locations =
+                state.locations.filter(
+                    item =>
+                        item.id !==
+                        location.id
+                );
+
+
+            state.selectedLocationId =
+                null;
+
+
+            saveLocalCache();
+
+
+            closeDetailsPanel();
+
+            renderLocations();
+
         }
+    );
 
-
-        /*
-         * Delete locally.
-         */
-
-        state.locations =
-            state.locations.filter(
-                item =>
-                    item.id !==
-                    location.id
-            );
-
-
-        state.selectedLocationId =
-            null;
-
-
-        saveLocalCache();
-
-        closeDetailsPanel();
-
-        renderLocations();
-
-    }
-);
+}
 
 
 /* =========================================
@@ -2913,7 +3464,9 @@ accessibilityButtons.forEach(
    CATEGORY FILTER
 ========================================= */
 
-if (categoryFilter) {
+if (
+    categoryFilter
+) {
 
     categoryFilter.addEventListener(
         "change",
@@ -2935,7 +3488,9 @@ if (categoryFilter) {
    SEARCH
 ========================================= */
 
-if (searchInput) {
+if (
+    searchInput
+) {
 
     searchInput.addEventListener(
         "input",
@@ -2959,7 +3514,9 @@ if (searchInput) {
    SORT
 ========================================= */
 
-if (sortFilter) {
+if (
+    sortFilter
+) {
 
     sortFilter.addEventListener(
         "change",
@@ -3025,7 +3582,9 @@ function clearFilters() {
     );
 
 
-    if (categoryFilter) {
+    if (
+        categoryFilter
+    ) {
 
         categoryFilter.value =
             "all";
@@ -3033,7 +3592,9 @@ function clearFilters() {
     }
 
 
-    if (searchInput) {
+    if (
+        searchInput
+    ) {
 
         searchInput.value =
             "";
@@ -3041,7 +3602,9 @@ function clearFilters() {
     }
 
 
-    if (sortFilter) {
+    if (
+        sortFilter
+    ) {
 
         sortFilter.value =
             "newest";
@@ -3054,7 +3617,9 @@ function clearFilters() {
 }
 
 
-if (resetFilters) {
+if (
+    resetFilters
+) {
 
     resetFilters.addEventListener(
         "click",
@@ -3068,20 +3633,28 @@ if (resetFilters) {
    USER LOCATION
 ========================================= */
 
-locateBtn.addEventListener(
-    "click",
-    () => {
+if (
+    locateBtn
+) {
 
-        map.locate({
+    locateBtn.addEventListener(
+        "click",
+        () => {
 
-            setView: true,
+            map.locate({
 
-            maxZoom: 14
+                setView:
+                    true,
 
-        });
+                maxZoom:
+                    14
 
-    }
-);
+            });
+
+        }
+    );
+
+}
 
 
 map.on(
@@ -3102,8 +3675,11 @@ map.on(
 
                 fillOpacity:
                     0.05
+
             }
-        ).addTo(map);
+        ).addTo(
+            map
+        );
 
 
         L.circleMarker(
@@ -3123,9 +3699,12 @@ map.on(
 
                 fillOpacity:
                     1
+
             }
         )
-            .addTo(map)
+            .addTo(
+                map
+            )
             .bindPopup(
                 "Your approximate location"
             );
@@ -3150,58 +3729,68 @@ map.on(
    SIDEBAR DESKTOP
 ========================================= */
 
-sidebarToggle.addEventListener(
-    "click",
-    () => {
+if (
+    sidebarToggle
+) {
 
-        if (isMobileLayout()) {
+    sidebarToggle.addEventListener(
+        "click",
+        () => {
 
-            closeMobileSidebar();
+            if (
+                isMobileLayout()
+            ) {
 
-            return;
+                closeMobileSidebar();
 
-        }
+                return;
 
-
-        sidebar.classList.toggle(
-            "collapsed"
-        );
+            }
 
 
-        if (
-            sidebar.classList.contains(
+            sidebar.classList.toggle(
                 "collapsed"
-            )
-        ) {
+            );
 
-            sidebarToggle.textContent =
-                "›";
 
-            sidebarToggle.title =
-                "Open sidebar";
+            if (
+                sidebar.classList.contains(
+                    "collapsed"
+                )
+            ) {
 
-        } else {
+                sidebarToggle.textContent =
+                    "›";
 
-            sidebarToggle.textContent =
-                "‹";
 
-            sidebarToggle.title =
-                "Collapse sidebar";
+                sidebarToggle.title =
+                    "Open sidebar";
+
+            } else {
+
+                sidebarToggle.textContent =
+                    "‹";
+
+
+                sidebarToggle.title =
+                    "Collapse sidebar";
+
+            }
+
+
+            setTimeout(
+                () => {
+
+                    map.invalidateSize();
+
+                },
+                250
+            );
 
         }
+    );
 
-
-        setTimeout(
-            () => {
-
-                map.invalidateSize();
-
-            },
-            250
-        );
-
-    }
-);
+}
 
 
 /* =========================================
@@ -3219,8 +3808,12 @@ function isMobileLayout() {
 
 function openMobileSidebar() {
 
-    if (!isMobileLayout()) {
+    if (
+        !isMobileLayout()
+    ) {
+
         return;
+
     }
 
 
@@ -3229,7 +3822,9 @@ function openMobileSidebar() {
     );
 
 
-    if (mobileSidebarBackdrop) {
+    if (
+        mobileSidebarBackdrop
+    ) {
 
         mobileSidebarBackdrop.classList.add(
             "visible"
@@ -3244,7 +3839,9 @@ function openMobileSidebar() {
     }
 
 
-    if (mobileMenuBtn) {
+    if (
+        mobileMenuBtn
+    ) {
 
         mobileMenuBtn.classList.add(
             "active"
@@ -3285,7 +3882,9 @@ function closeMobileSidebar() {
     );
 
 
-    if (mobileSidebarBackdrop) {
+    if (
+        mobileSidebarBackdrop
+    ) {
 
         mobileSidebarBackdrop.classList.remove(
             "visible"
@@ -3300,7 +3899,9 @@ function closeMobileSidebar() {
     }
 
 
-    if (mobileMenuBtn) {
+    if (
+        mobileMenuBtn
+    ) {
 
         mobileMenuBtn.classList.remove(
             "active"
@@ -3331,8 +3932,12 @@ function closeMobileSidebar() {
 
 function toggleMobileSidebar() {
 
-    if (!isMobileLayout()) {
+    if (
+        !isMobileLayout()
+    ) {
+
         return;
+
     }
 
 
@@ -3353,7 +3958,9 @@ function toggleMobileSidebar() {
 }
 
 
-if (mobileMenuBtn) {
+if (
+    mobileMenuBtn
+) {
 
     mobileMenuBtn.addEventListener(
         "click",
@@ -3363,7 +3970,9 @@ if (mobileMenuBtn) {
 }
 
 
-if (mobileSidebarBackdrop) {
+if (
+    mobileSidebarBackdrop
+) {
 
     mobileSidebarBackdrop.addEventListener(
         "click",
@@ -3381,7 +3990,9 @@ window.addEventListener(
     "resize",
     () => {
 
-        if (!isMobileLayout()) {
+        if (
+            !isMobileLayout()
+        ) {
 
             closeMobileSidebar();
 
@@ -3430,8 +4041,13 @@ document.addEventListener(
     "keydown",
     event => {
 
-        if (event.key !== "Escape") {
+        if (
+            event.key !==
+            "Escape"
+        ) {
+
             return;
+
         }
 
 
@@ -3465,6 +4081,7 @@ document.addEventListener(
 
         if (
             isMobileLayout() &&
+            sidebar &&
             sidebar.classList.contains(
                 "mobile-open"
             )
@@ -3486,8 +4103,12 @@ map.on(
     "mousemove",
     event => {
 
-        if (!coordinates) {
+        if (
+            !coordinates
+        ) {
+
             return;
+
         }
 
 
@@ -3503,8 +4124,12 @@ map.on(
     "mouseout",
     () => {
 
-        if (!coordinates) {
+        if (
+            !coordinates
+        ) {
+
             return;
+
         }
 
 
@@ -3516,20 +4141,22 @@ map.on(
 
 
 /* =========================================
-   INITIALIZE
+   INITIALIZE WAYPOINT
 ========================================= */
 
 (async function initializeWaypoint() {
 
     /*
-     * Load cached locations immediately.
+     * Load local cache immediately.
      */
 
     const cached =
         loadLocalCache();
 
 
-    if (cached.length) {
+    if (
+        cached.length
+    ) {
 
         state.locations =
             cached;
@@ -3540,16 +4167,15 @@ map.on(
 
 
     /*
-     * Connect to Supabase and load
-     * the shared database.
+     * Connect to Supabase.
      */
 
     await initializeDatabase();
 
 
     /*
-     * Make sure the map renders correctly
-     * after the initial application load.
+     * Make sure the map renders
+     * correctly after startup.
      */
 
     setTimeout(
@@ -3577,5 +4203,22 @@ map.on(
             ? "Cloud database: CONNECTED"
             : "Cloud database: OFFLINE / LOCAL CACHE"
     );
+
+
+    if (
+        supabaseClient
+    ) {
+
+        console.log(
+            "Supabase client: AVAILABLE"
+        );
+
+    } else {
+
+        console.warn(
+            "Supabase client: NOT AVAILABLE"
+        );
+
+    }
 
 })();
